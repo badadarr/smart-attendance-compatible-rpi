@@ -258,6 +258,75 @@ check_temperature() {
     fi
 }
 
+# Function to fix ARM-specific installation issues
+fix_arm_installation() {
+    echo "🔧 Fixing ARM architecture specific issues..."
+    
+    # Check architecture
+    ARCH=$(uname -m)
+    echo "📋 Detected architecture: $ARCH"
+    
+    # Activate virtual environment
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+        echo "✅ Virtual environment activated"
+    else
+        echo "❌ Virtual environment not found. Please run installation first."
+        return 1
+    fi
+    
+    # Install build dependencies
+    echo "📦 Installing build dependencies for ARM..."
+    sudo apt update && sudo apt install -y \
+        build-essential \
+        cmake \
+        pkg-config \
+        python3-dev \
+        libatlas-base-dev \
+        gfortran \
+        libhdf5-dev \
+        libhdf5-serial-dev \
+        python3-h5py \
+        libjpeg-dev \
+        libtiff-dev \
+        libpng-dev \
+        libavcodec-dev \
+        libavformat-dev \
+        libswscale-dev \
+        libv4l-dev \
+        libgtk-3-dev
+    
+    # Try installing with piwheels (ARM-optimized repository)
+    echo "🎯 Installing packages with ARM optimization..."
+    pip install --extra-index-url https://www.piwheels.org/simple/ \
+        numpy scipy scikit-learn opencv-python-headless flask pandas pillow
+    
+    # If still failing, try minimal versions
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Standard installation failed, trying minimal versions..."
+        pip install -r requirements_rpi_minimal.txt
+    fi
+    
+    echo "✅ ARM installation fix completed"
+}
+
+# Function to fix SciPy build issues
+fix_scipy_build() {
+    echo "🧮 Fixing SciPy build issues..."
+    
+    # Install BLAS/LAPACK libraries
+    sudo apt install -y libopenblas-dev liblapack-dev
+    
+    # Set environment variables for cross-compilation
+    export NPY_NUM_BUILD_JOBS=1
+    export SCIPY_USE_PROPACK=0
+    
+    # Try installing scipy with specific flags
+    pip install --no-use-pep517 scipy==1.7.3
+    
+    echo "✅ SciPy build fix attempted"
+}
+
 # Main menu
 show_menu() {
     echo ""

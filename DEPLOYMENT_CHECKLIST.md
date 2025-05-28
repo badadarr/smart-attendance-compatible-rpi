@@ -21,10 +21,19 @@
 - [ ] Project files downloaded/extracted
 - [ ] Installation script permissions set (`chmod +x *.sh`)
 - [ ] Automated installation completed (`./install_rpi.sh`)
+- [ ] **If installation fails**: Run fix script (`chmod +x fix_rpi_installation.sh && ./fix_rpi_installation.sh`)
 - [ ] Virtual environment created and activated
 - [ ] All Python dependencies installed
 - [ ] System packages installed
 - [ ] Camera permissions configured
+
+### ✅ Installation Troubleshooting (if needed)
+- [ ] ARM architecture compatibility checked
+- [ ] Build dependencies installed for compilation
+- [ ] Alternative package versions tried (`requirements_rpi_minimal.txt`)
+- [ ] Piwheels repository used for ARM-optimized packages
+- [ ] SciPy/NumPy cross-compilation issues resolved
+- [ ] System packages updated to newer versions where available
 
 ### ✅ System Validation
 - [ ] Setup validation passed (`python validate_setup.py`)
