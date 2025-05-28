@@ -1,0 +1,24 @@
+[Unit]
+Description=Face Recognition Attendance System
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/smart-attendance-compatible-rpi
+Environment=PATH=/home/pi/smart-attendance-compatible-rpi/venv/bin
+ExecStart=/home/pi/smart-attendance-compatible-rpi/venv/bin/python /home/pi/smart-attendance-compatible-rpi/app.py
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/pi/smart-attendance-compatible-rpi
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,155 @@
+{% extends "base.html" %} {% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <h1 class="page-title">
+      <i class="fas fa-user-check me-3"></i>
+      Face Recognition Attendance System
+    </h1>
+
+    <div class="row">
+      <div class="col-md-6 mb-4">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <div class="mb-3">
+              <i class="fas fa-calendar-day fa-3x text-primary"></i>
+            </div>
+            <h5 class="card-title">Daily Attendance</h5>
+            <p class="card-text">
+              View and manage daily attendance records. Check who's present,
+              track clock-in/out times, and download attendance reports.
+            </p>
+            <a href="{{ url_for('daily_attendance') }}" class="btn btn-primary">
+              <i class="fas fa-eye me-2"></i>View Daily Records
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-4">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <div class="mb-3">
+              <i class="fas fa-chart-line fa-3x text-success"></i>
+            </div>
+            <h5 class="card-title">Statistics & Reports</h5>
+            <p class="card-text">
+              Analyze attendance patterns, view comprehensive statistics, and
+              generate detailed reports for better insights.
+            </p>
+            <a href="{{ url_for('statistics') }}" class="btn btn-success">
+              <i class="fas fa-chart-bar me-2"></i>View Statistics
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="card-title">
+          <i class="fas fa-info-circle me-2"></i>
+          System Status
+        </h5>
+        <div class="row" id="system-status">
+          <div class="col-md-3">
+            <div class="stats-card">
+              <div class="stats-number" id="today-entries">0</div>
+              <div>Today's Entries</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stats-card">
+              <div class="stats-number" id="today-clock-ins">0</div>
+              <div>Clock Ins</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stats-card">
+              <div class="stats-number" id="today-clock-outs">0</div>
+              <div>Clock Outs</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stats-card">
+              <div class="stats-number">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <div>System Online</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="last-entry" class="mt-3" style="display: none">
+          <div class="alert alert-info">
+            <strong>Last Entry:</strong>
+            <span id="last-entry-text"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="card-title">
+          <i class="fas fa-question-circle me-2"></i>
+          How to Use
+        </h5>
+        <div class="row">
+          <div class="col-md-4 text-center mb-3">
+            <i class="fas fa-camera fa-2x text-primary mb-2"></i>
+            <h6>1. Capture Face</h6>
+            <p class="small">
+              Run the face capture script to register new users in the system.
+            </p>
+          </div>
+          <div class="col-md-4 text-center mb-3">
+            <i class="fas fa-clock fa-2x text-success mb-2"></i>
+            <h6>2. Take Attendance</h6>
+            <p class="small">
+              Use the attendance script to clock in/out using face recognition.
+            </p>
+          </div>
+          <div class="col-md-4 text-center mb-3">
+            <i class="fas fa-chart-bar fa-2x text-info mb-2"></i>
+            <h6>3. View Reports</h6>
+            <p class="small">
+              Access this web interface to view and analyze attendance data.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  // Function to update system status
+  function updateSystemStatus() {
+    fetch("/api/attendance_status")
+      .then((response) => response.json())
+      .then((data) => {
+        document.getElementById("today-entries").textContent =
+          data.total_entries;
+        document.getElementById("today-clock-ins").textContent = data.clock_ins;
+        document.getElementById("today-clock-outs").textContent =
+          data.clock_outs;
+
+        if (data.last_entry) {
+          document.getElementById(
+            "last-entry-text"
+          ).textContent = `${data.last_entry.name} - ${data.last_entry.status} at ${data.last_entry.time}`;
+          document.getElementById("last-entry").style.display = "block";
+        } else {
+          document.getElementById("last-entry").style.display = "none";
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching status:", error);
+      });
+  }
+
+  // Update status on page load and every 5 seconds
+  updateSystemStatus();
+  setInterval(updateSystemStatus, 5000);
+</script>
+{% endblock %}
