@@ -29,22 +29,16 @@
 
 {% if data.has_data %}
 <div class="row mb-4">
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="stats-card">
       <div class="stats-number">{{ data.total_entries }}</div>
       <div>Total Entries</div>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="stats-card">
-      <div class="stats-number">{{ data.clock_ins }}</div>
-      <div>Clock Ins</div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stats-card">
-      <div class="stats-number">{{ data.clock_outs }}</div>
-      <div>Clock Outs</div>
+      <div class="stats-number">{{ data.present_count }}</div>
+      <div>Present</div>
     </div>
   </div>
 </div>
@@ -64,35 +58,25 @@
   </div>
   <div class="card-body">
     <div class="table-responsive">
-      <table class="table table-striped table-hover">
-        <thead>
+      <table class="table table-striped table-hover">        <thead>
           <tr>
             <th><i class="fas fa-user me-1"></i>Name</th>
             <th><i class="fas fa-clock me-1"></i>Time</th>
             <th><i class="fas fa-calendar me-1"></i>Date</th>
-            <th><i class="fas fa-sign-in-alt me-1"></i>Status</th>
+            <th><i class="fas fa-check-circle me-1"></i>Status</th>
           </tr>
         </thead>
-        <tbody>
-          {% for entry in data.attendance_data %}
-          <tr
-            class="{% if entry.STATUS == 'CLOCK IN' %}clock-in{% else %}clock-out{% endif %}"
-          >
+        <tbody>          {% for entry in data.attendance_data %}
+          <tr class="present-row">
             <td>
               <strong>{{ entry.NAME }}</strong>
             </td>
             <td>{{ entry.TIME }}</td>
             <td>{{ entry.DATE }}</td>
             <td>
-              {% if entry.STATUS == 'CLOCK IN' %}
               <span class="badge bg-success">
-                <i class="fas fa-sign-in-alt me-1"></i>{{ entry.STATUS }}
+                <i class="fas fa-check me-1"></i>{{ entry.STATUS }}
               </span>
-              {% else %}
-              <span class="badge bg-danger">
-                <i class="fas fa-sign-out-alt me-1"></i>{{ entry.STATUS }}
-              </span>
-              {% endif %}
             </td>
           </tr>
           {% endfor %}

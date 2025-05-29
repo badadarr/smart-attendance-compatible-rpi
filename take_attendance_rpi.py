@@ -54,12 +54,11 @@ class AttendanceSystem:
                 print("⚠️  Could not initialize text-to-speech")
 
         # CSV columns
-        self.csv_columns = ["NAME", "TIME", "DATE", "STATUS"]
-
-        # Recognition settings
+        self.csv_columns = ["NAME", "TIME", "DATE", "STATUS"]  # Recognition settings
         self.confidence_threshold = 0.6
         self.recognition_cooldown = 3  # seconds between recognitions
         self.last_recognition_time = {}
+        self.current_recognition_data = None  # Store current recognition data
 
     def speak(self, text):
         """Text-to-speech feedback"""
@@ -159,8 +158,7 @@ class AttendanceSystem:
 
                 # Write attendance record
                 writer.writerow([name, timestamp, date, status])
-
-            return True
+                return True
 
         except Exception as e:
             print(f"❌ Error saving attendance: {e}")
@@ -169,9 +167,20 @@ class AttendanceSystem:
     def recognize_face(self, face_roi):
         """Recognize face using KNN classifier"""
         try:
-            # Prepare face data
+            # Prepare face data - resize to 50x50 pixel to match training data
             resized_face = cv2.resize(face_roi, (50, 50))
+
+            # Flatten for KNN input (50x50x3 = 7500 features for color images)
             face_flattened = resized_face.flatten().reshape(1, -1)
+
+            # The training data uses color images (7500 features)
+            expected_features = 50 * 50 * 3  # 7500 for color images
+
+            if face_flattened.shape[1] != expected_features:
+                print(
+                    f"⚠️ Warning: Feature size mismatch: {face_flattened.shape[1]} vs expected {expected_features}"
+                )
+                return None, 0.0
 
             # Get prediction and probabilities
             prediction = self.knn.predict(face_flattened)[0]
@@ -211,6 +220,13 @@ class AttendanceSystem:
 
         frame_count = 0
 
+        # Load background image
+        groupbg_path = str(self.base_dir / "groupbg.png")
+        groupbg = cv2.imread(groupbg_path)
+        if groupbg is None:
+            print(f"❌ Failed to load background image: {groupbg_path}")
+            return
+
         while True:
             ret, frame = self.video.read()
             if not ret:
@@ -219,110 +235,165 @@ class AttendanceSystem:
 
             frame_count += 1
 
-            # Convert to grayscale for face detection
+            # Deteksi wajah dengan parameter yang lebih sensitif
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # Equalize histogram untuk memperbaiki kontras
+            gray = cv2.equalizeHist(gray)
             faces = self.face_cascade.detectMultiScale(
-                gray, scaleFactor=1.3, minNeighbors=5, minSize=(50, 50)
-            )
-
-            current_time = datetime.now()
-            date_str = current_time.strftime("%d-%m-%Y")
-            time_str = current_time.strftime("%H:%M:%S")
-
-            # Process each detected face
+                gray,
+                scaleFactor=1.2,  # Nilai lebih besar = lebih sensitif
+                minNeighbors=3,  # Nilai lebih kecil = lebih sensitif
+                minSize=(20, 20),  # Ukuran minimum wajah yang lebih kecil
+                maxSize=(300, 300),  # Ukuran maximum wajah
+            )  # Process setiap wajah yang terdeteksi
             for x, y, w, h in faces:
-                face_roi = frame[y : y + h, x : x + w]
+                # Crop area wajah from original color frame (not grayscale)
+                face_roi = frame[y : y + h, x : x + w]  # Recognize face
+                name, confidence = self.recognize_face(face_roi)
 
-                # Recognize face (every 5th frame for performance)
-                if frame_count % 5 == 0:
-                    name, confidence = self.recognize_face(face_roi)
+                if name is not None:
+                    # Store recognition data for use when space key is pressed
+                    current_time = datetime.now().strftime("%H:%M:%S")
+                    current_date = datetime.now().strftime("%Y-%m-%d")
 
-                    if name:
-                        # Get current status
-                        current_status = self.get_current_status(name, date_str)
-                        next_status = (
-                            "CLOCK IN" if current_status != "CLOCK IN" else "CLOCK OUT"
-                        )
+                    self.current_recognition_data = {
+                        "name": name,
+                        "time": current_time,
+                        "date": current_date,
+                        "status": "Present",
+                    }
 
-                        # Draw rectangle and labels
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    # Gambar rectangle di sekitar wajah
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-                        # Status label
-                        label = f"{name} - {next_status}"
-                        confidence_label = f"Conf: {confidence:.2f}"
-
-                        cv2.putText(
-                            frame,
-                            label,
-                            (x, y - 30),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (0, 255, 0),
-                            2,
-                        )
-                        cv2.putText(
-                            frame,
-                            confidence_label,
-                            (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.5,
-                            (0, 255, 0),
-                            1,
-                        )
-
-                        # Store recognition data for space key processing
-                        frame.recognition_data = {
-                            "name": name,
-                            "status": next_status,
-                            "time": time_str,
-                            "date": date_str,
-                            "confidence": confidence,
-                        }
-                    else:
-                        # Unknown face
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                        cv2.putText(
-                            frame,
-                            "Unknown",
-                            (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (0, 0, 255),
-                            2,
-                        )
+                    # Tambahkan text nama dan confidence
+                    conf_text = f"{confidence*100:.2f}%"
+                    cv2.putText(
+                        frame,
+                        name,
+                        (x, y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        2,
+                    )
+                    cv2.putText(
+                        frame,
+                        conf_text,
+                        (x, y + h + 20),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        2,
+                    )
                 else:
-                    # Just draw rectangle for other frames
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 255), 1)
+                    # Wajah terdeteksi tapi tidak dikenali
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                    cv2.putText(
+                        frame,
+                        "Unknown",
+                        (x, y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 0, 255),
+                        2,
+                    )
 
-            # Add instructions
-            cv2.putText(
-                frame,
-                "Press SPACE to record attendance",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2,
+            # Clear recognition data if no faces are detected
+            if len(faces) == 0:
+                self.current_recognition_data = None
+
+            # Resize background dan frame
+            frame_height, frame_width = frame.shape[:2]
+            desired_width = 1280  # Lebar tampilan yang diinginkan
+            desired_height = 720  # Tinggi tampilan yang diinginkan
+
+            # Mengubah ukuran frame video agar sesuai dengan area biru
+            frame_desired_width = 640  # Sesuaikan dengan lebar area biru
+            frame_desired_height = 480  # Sesuaikan dengan tinggi area biru
+            frame = cv2.resize(frame, (frame_desired_width, frame_desired_height))
+            frame_height, frame_width = frame.shape[:2]
+
+            # Resize background
+            background = cv2.resize(groupbg, (desired_width, desired_height))
+
+            # Hitung posisi frame video di area biru (sesuaikan dengan posisi area biru di groupbg)
+            frame_x = 80  # Jarak dari kiri
+            frame_y = 150  # Jarak dari atas, di bawah tulisan Face Attendance System
+
+            # Embed video frame di area biru
+            try:
+                background[
+                    frame_y : frame_y + frame_height, frame_x : frame_x + frame_width
+                ] = frame
+            except:
+                print("❌ Error embedding frame into background")
+                continue
+
+            # Add title (di atas frame video)
+            title_text = "Face Attendance System"
+            title_font = cv2.FONT_HERSHEY_SIMPLEX
+            title_scale = 1.5
+            title_thickness = 2
+            title_color = (255, 255, 255)
+
+            # Ukur ukuran text untuk penempatan yang tepat
+            (title_width, title_height), _ = cv2.getTextSize(
+                title_text, title_font, title_scale, title_thickness
             )
+            title_x = (desired_width - title_width) // 2
+            title_y = 80  # Sesuaikan dengan posisi judul yang diinginkan
+
             cv2.putText(
-                frame,
-                "Press 'q' to quit",
-                (10, 60),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2,
+                background,
+                title_text,
+                (title_x, title_y),
+                title_font,
+                title_scale,
+                title_color,
+                title_thickness,
             )
+
+            # Add instructions (di bawah frame video)
+            instructions = ["Press 'SPACE' to record attendance", "Press 'q' to quit"]
+
+            inst_y = frame_y + frame_height + 30
+            for instruction in instructions:
+                (inst_width, inst_height), _ = cv2.getTextSize(
+                    instruction, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2
+                )
+                inst_x = (
+                    frame_x + (frame_width - inst_width) // 2
+                )  # Tengah dari area frame
+
+                # Tambah shadow untuk keterbacaan
+                cv2.putText(
+                    background,
+                    instruction,
+                    (inst_x + 2, inst_y + 2),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (0, 0, 0),
+                    2,
+                )
+                cv2.putText(
+                    background,
+                    instruction,
+                    (inst_x, inst_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (255, 255, 255),
+                    2,
+                )
+                inst_y += 40
 
             # Show frame
-            cv2.imshow("Attendance System", frame)
-
-            # Handle key presses
+            cv2.imshow("Attendance System", background)  # Handle key presses
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord(" "):  # Space key to record attendance
-                if hasattr(frame, "recognition_data"):
-                    data = frame.recognition_data
+                if self.current_recognition_data is not None:
+                    data = self.current_recognition_data
 
                     if self.can_process_recognition(data["name"]):
                         # Save attendance

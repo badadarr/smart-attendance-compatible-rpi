@@ -15,8 +15,8 @@
             </div>
             <h5 class="card-title">Daily Attendance</h5>
             <p class="card-text">
-              View and manage daily attendance records. Check who's present,
-              track clock-in/out times, and download attendance reports.
+              View and manage daily attendance records. Check who's present
+              and download attendance reports.
             </p>
             <a href="{{ url_for('daily_attendance') }}" class="btn btn-primary">
               <i class="fas fa-eye me-2"></i>View Daily Records
@@ -51,30 +51,16 @@
           System Status
         </h5>
         <div class="row" id="system-status">
-          <div class="col-md-3">
+          <div class="col-md-6">
             <div class="stats-card">
               <div class="stats-number" id="today-entries">0</div>
               <div>Today's Entries</div>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-6">
             <div class="stats-card">
-              <div class="stats-number" id="today-clock-ins">0</div>
-              <div>Clock Ins</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stats-card">
-              <div class="stats-number" id="today-clock-outs">0</div>
-              <div>Clock Outs</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stats-card">
-              <div class="stats-number">
-                <i class="fas fa-check-circle"></i>
-              </div>
-              <div>System Online</div>
+              <div class="stats-number" id="today-present">0</div>
+              <div>Present</div>
             </div>
           </div>
         </div>
@@ -106,7 +92,7 @@
             <i class="fas fa-clock fa-2x text-success mb-2"></i>
             <h6>2. Take Attendance</h6>
             <p class="small">
-              Use the attendance script to clock in/out using face recognition.
+              Use the attendance script to mark attendance using face recognition.
             </p>
           </div>
           <div class="col-md-4 text-center mb-3">
@@ -130,9 +116,7 @@
       .then((data) => {
         document.getElementById("today-entries").textContent =
           data.total_entries;
-        document.getElementById("today-clock-ins").textContent = data.clock_ins;
-        document.getElementById("today-clock-outs").textContent =
-          data.clock_outs;
+        document.getElementById("today-present").textContent = data.present_count;
 
         if (data.last_entry) {
           document.getElementById(

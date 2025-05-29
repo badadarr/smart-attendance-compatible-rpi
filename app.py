@@ -26,7 +26,9 @@ def index():
 def daily_attendance():
     selected_date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
     selected_date_obj = datetime.strptime(selected_date, "%Y-%m-%d")
-    formatted_date = selected_date_obj.strftime("%d-%m-%Y")
+    formatted_date = selected_date_obj.strftime(
+        "%Y-%m-%d"
+    )  # Menggunakan format yang sesuai dengan file CSV
 
     attendance_file_path = f"Attendance/Attendance_{formatted_date}.csv"
 
@@ -35,8 +37,7 @@ def daily_attendance():
         "formatted_date": formatted_date,
         "has_data": False,
         "total_entries": 0,
-        "clock_ins": 0,
-        "clock_outs": 0,
+        "present_count": 0,  # Changed from clock_ins/clock_outs to present_count
         "attendance_data": [],
     }
 
@@ -45,8 +46,9 @@ def daily_attendance():
             df = pd.read_csv(attendance_file_path)
             data["has_data"] = True
             data["total_entries"] = len(df)
-            data["clock_ins"] = len(df[df["STATUS"] == "CLOCK IN"])
-            data["clock_outs"] = len(df[df["STATUS"] == "CLOCK OUT"])
+            data["present_count"] = len(
+                df[df["STATUS"] == "Present"]
+            )  # Count Present status
             data["attendance_data"] = df.to_dict("records")
         except Exception as e:
             print(f"Error reading attendance file: {e}")
@@ -66,8 +68,7 @@ def statistics():
         "has_data": False,
         "total_students": 0,
         "total_days": 0,
-        "most_common_clock_in": "No data",
-        "most_common_clock_out": "No data",
+        "most_common_time": "No data",  # Changed from separate clock_in/clock_out
         "attendance_patterns": [],
     }
 
@@ -82,57 +83,37 @@ def statistics():
                 combined_df = pd.concat(all_data)
                 stats_data["has_data"] = True
                 stats_data["total_students"] = combined_df["NAME"].nunique()
-                stats_data["total_days"] = len(attendance_files)
+                stats_data["total_days"] = len(
+                    attendance_files
+                )  # Calculate most common time (for Present status)
+                present_times = combined_df[combined_df["STATUS"] == "Present"]["TIME"]
 
-                # Calculate most common times
-                clock_in_times = combined_df[combined_df["STATUS"] == "CLOCK IN"][
-                    "TIME"
-                ]
-                clock_out_times = combined_df[combined_df["STATUS"] == "CLOCK OUT"][
-                    "TIME"
-                ]
-
-                if not clock_in_times.empty:
-                    stats_data["most_common_clock_in"] = clock_in_times.mode().iloc[0]
-                if not clock_out_times.empty:
-                    stats_data["most_common_clock_out"] = clock_out_times.mode().iloc[0]
-
-                # Calculate attendance patterns
+                if not present_times.empty:
+                    stats_data["most_common_time"] = present_times.mode().iloc[
+                        0
+                    ]  # Calculate attendance patterns
                 days_present = (
                     combined_df.groupby("NAME")["DATE"].nunique().reset_index()
                 )
-                clock_ins = (
-                    combined_df[combined_df["STATUS"] == "CLOCK IN"]
+                present_count = (
+                    combined_df[combined_df["STATUS"] == "Present"]
                     .groupby("NAME")
                     .size()
-                    .reset_index(name="Total Clock Ins")
-                )
-                clock_outs = (
-                    combined_df[combined_df["STATUS"] == "CLOCK OUT"]
-                    .groupby("NAME")
-                    .size()
-                    .reset_index(name="Total Clock Outs")
+                    .reset_index(name="Total Present")
                 )
 
                 attendance_patterns = days_present.merge(
-                    clock_ins, on="NAME", how="left"
-                )
-                attendance_patterns = attendance_patterns.merge(
-                    clock_outs, on="NAME", how="left"
+                    present_count, on="NAME", how="left"
                 )
 
                 attendance_patterns.columns = [
                     "Name",
                     "Days Present",
-                    "Total Clock Ins",
-                    "Total Clock Outs",
+                    "Total Present",
                 ]
                 attendance_patterns = attendance_patterns.fillna(0)
-                attendance_patterns["Total Clock Ins"] = attendance_patterns[
-                    "Total Clock Ins"
-                ].astype(int)
-                attendance_patterns["Total Clock Outs"] = attendance_patterns[
-                    "Total Clock Outs"
+                attendance_patterns["Total Present"] = attendance_patterns[
+                    "Total Present"
                 ].astype(int)
                 attendance_patterns["Attendance Rate"] = (
                     attendance_patterns["Days Present"] / stats_data["total_days"] * 100
@@ -156,7 +137,9 @@ def download_csv():
     date_str = request.args.get("date")
     if date_str:
         selected_date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        formatted_date = selected_date_obj.strftime("%d-%m-%Y")
+        formatted_date = selected_date_obj.strftime(
+            "%Y-%m-%d"
+        )  # Format tanggal yang sesuai dengan file CSV
         file_path = f"Attendance/Attendance_{formatted_date}.csv"
 
         if os.path.exists(file_path):
@@ -189,40 +172,29 @@ def download_patterns():
             total_days = len(attendance_files)
 
             days_present = combined_df.groupby("NAME")["DATE"].nunique().reset_index()
-            clock_ins = (
-                combined_df[combined_df["STATUS"] == "CLOCK IN"]
+            present_count = (
+                combined_df[combined_df["STATUS"] == "Present"]
                 .groupby("NAME")
                 .size()
-                .reset_index(name="Total Clock Ins")
-            )
-            clock_outs = (
-                combined_df[combined_df["STATUS"] == "CLOCK OUT"]
-                .groupby("NAME")
-                .size()
-                .reset_index(name="Total Clock Outs")
+                .reset_index(name="Total Present")
             )
 
-            attendance_patterns = days_present.merge(clock_ins, on="NAME", how="left")
-            attendance_patterns = attendance_patterns.merge(
-                clock_outs, on="NAME", how="left"
+            attendance_patterns = days_present.merge(
+                present_count, on="NAME", how="left"
             )
 
             attendance_patterns.columns = [
                 "Name",
                 "Days Present",
-                "Total Clock Ins",
-                "Total Clock Outs",
+                "Total Present",
             ]
             attendance_patterns = attendance_patterns.fillna(0)
-            attendance_patterns["Total Clock Ins"] = attendance_patterns[
-                "Total Clock Ins"
-            ].astype(int)
-            attendance_patterns["Total Clock Outs"] = attendance_patterns[
-                "Total Clock Outs"
+            attendance_patterns["Total Present"] = attendance_patterns[
+                "Total Present"
             ].astype(int)
             attendance_patterns["Attendance Rate"] = (
                 attendance_patterns["Days Present"] / total_days * 100
-            ).round(2).astype(str) + "%"
+            ).round(2)
 
             # Save to temporary file
             temp_file = "temp_attendance_patterns.csv"
@@ -241,14 +213,13 @@ def download_patterns():
 @app.route("/api/attendance_status")
 def get_attendance_status():
     """API endpoint to get current attendance status for real-time updates"""
-    today = datetime.now().strftime("%d-%m-%Y")
+    today = datetime.now().strftime("%Y-%m-%d")  # Format tanggal sesuai dengan file CSV
     attendance_file_path = f"Attendance/Attendance_{today}.csv"
 
     status = {
         "date": today,
         "total_entries": 0,
-        "clock_ins": 0,
-        "clock_outs": 0,
+        "present_count": 0,
         "last_entry": None,
     }
 
@@ -256,8 +227,7 @@ def get_attendance_status():
         try:
             df = pd.read_csv(attendance_file_path)
             status["total_entries"] = len(df)
-            status["clock_ins"] = len(df[df["STATUS"] == "CLOCK IN"])
-            status["clock_outs"] = len(df[df["STATUS"] == "CLOCK OUT"])
+            status["present_count"] = len(df[df["STATUS"] == "Present"])
 
             if not df.empty:
                 last_row = df.iloc[-1]
