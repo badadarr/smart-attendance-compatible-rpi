@@ -2,6 +2,7 @@
 """
 Setup Validation Script for Face Recognition Attendance System
 Compatible with Raspberry Pi OS Debian 12 (bookworm) 64-bit
+Fixed version with proper syntax
 """
 
 import os
@@ -144,7 +145,9 @@ class SetupValidator:
                 else:
                     self.log_fail(f"System Package: {package}", "not installed")
             except (subprocess.TimeoutExpired, FileNotFoundError):
-                self.log_warning(f"System Package: {package}", "cannot verify")    def validate_file_structure(self):
+                self.log_warning(f"System Package: {package}", "cannot verify")
+
+    def validate_file_structure(self):
         """Validate project file structure"""
         print("\n📁 File Structure Validation")
         print("=" * 50)
@@ -155,7 +158,7 @@ class SetupValidator:
         required_files = [
             "app.py",
             "add_faces_rpi.py",
-            "take_attendance_rpi.py", 
+            "take_attendance_rpi.py",
             "requirements.txt",
             "config.ini",
             "README.md",
@@ -174,7 +177,7 @@ class SetupValidator:
                 file_path = file_item
                 display_name = file_item
                 full_path = project_root / file_path
-                
+
             if full_path.exists():
                 self.log_pass(f"File: {display_name}")
             else:
@@ -185,7 +188,9 @@ class SetupValidator:
             if dir_path.exists() and dir_path.is_dir():
                 self.log_pass(f"Directory: {dir_name}")
             else:
-                self.log_fail(f"Directory: {dir_name}", "missing")        # Check data directory contents
+                self.log_fail(f"Directory: {dir_name}", "missing")
+
+        # Check data directory contents
         data_dir = project_root / "data"
         if data_dir.exists():
             required_data_files = ["haarcascade_frontalface_default.xml"]
@@ -229,7 +234,9 @@ class SetupValidator:
 
         if not camera_found:
             self.log_fail("Camera Setup", "no cameras detected")
-            self.log_recommendation("Ensure camera is connected and enabled")    def validate_permissions(self):
+            self.log_recommendation("Ensure camera is connected and enabled")
+
+    def validate_permissions(self):
         """Validate file permissions"""
         print("\n🔐 Permissions Validation")
         print("=" * 50)
@@ -253,12 +260,14 @@ class SetupValidator:
                 script_path = script_item
                 display_name = script_item
                 full_path = project_root / script_path
-                
+
             if full_path.exists():
                 if os.access(full_path, os.X_OK):
                     self.log_pass(f"Execute Permission: {display_name}")
                 else:
-                    self.log_fail(f"Execute Permission: {display_name}", "not executable")
+                    self.log_fail(
+                        f"Execute Permission: {display_name}", "not executable"
+                    )
             else:
                 self.log_warning(f"Script: {display_name}", "not found")
 
@@ -287,7 +296,9 @@ class SetupValidator:
                     "Add user to video group: sudo usermod -a -G video $USER"
                 )
         except KeyError:
-            self.log_warning("Video Group", "cannot check membership")    def validate_configuration(self):
+            self.log_warning("Video Group", "cannot check membership")
+
+    def validate_configuration(self):
         """Validate configuration files"""
         print("\n⚙️  Configuration Validation")
         print("=" * 50)
