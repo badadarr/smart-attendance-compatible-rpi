@@ -17,8 +17,8 @@ except ImportError as e:
 
 class FaceRegistration:
     def __init__(self):
-        # Define data directory
-        self.DATA_DIR = Path(__file__).parent / "data"
+        # Define data directory - point to project root data folder
+        self.DATA_DIR = Path(__file__).parent.parent / "data"
         self.DATA_DIR.mkdir(exist_ok=True)
 
         # Initialize camera with lower resolution for RPi performance

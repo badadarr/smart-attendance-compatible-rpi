@@ -38,7 +38,7 @@ except ImportError:
 class TouchscreenAttendanceSystem:
     def __init__(self):
         # Paths
-        self.base_dir = Path(__file__).parent
+        self.base_dir = Path(__file__).parent.parent  # Go up to project root
         self.data_dir = self.base_dir / "data"
         self.attendance_dir = self.base_dir / "Attendance"
 

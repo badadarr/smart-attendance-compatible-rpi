@@ -38,7 +38,7 @@ except ImportError:
 class AttendanceSystem:
     def __init__(self):
         # Paths
-        self.base_dir = Path(__file__).parent
+        self.base_dir = Path(__file__).parent.parent  # Go up to project root
         self.data_dir = self.base_dir / "data"
         self.attendance_dir = self.base_dir / "Attendance"
 
@@ -66,10 +66,16 @@ class AttendanceSystem:
                 self.tts_engine.setProperty("volume", 0.8)  # Volume
             except:
                 self.tts_engine = None
-                print("⚠️  Could not initialize text-to-speech")
-
-        # CSV columns
-        self.csv_columns = ["NAME", "TIME", "DATE", "STATUS"]  # Recognition settings
+                print(
+                    "⚠️  Could not initialize text-to-speech"
+                )  # CSV columns - Updated for clock in/clock out system
+        self.csv_columns = [
+            "NAME",
+            "TIME",
+            "DATE",
+            "STATUS",
+            "WORK_HOURS",
+        ]  # Recognition settings
         self.confidence_threshold = 0.6
         self.recognition_cooldown = 3  # seconds between recognitions
         self.last_recognition_time = {}
@@ -159,11 +165,16 @@ class AttendanceSystem:
             return None
 
     def save_attendance(self, name, timestamp, date, status):
-        """Save attendance record"""
+        """Save attendance record with work hours calculation"""
         attendance_file = self.attendance_dir / f"Attendance_{date}.csv"
         file_exists = attendance_file.exists()
 
         try:
+            # Calculate work hours if this is a Clock Out
+            work_hours = ""
+            if status == "Clock Out":
+                work_hours = self.calculate_work_hours(name, date, timestamp)
+
             with open(attendance_file, "a", newline="") as f:
                 writer = csv.writer(f)
 
@@ -172,12 +183,56 @@ class AttendanceSystem:
                     writer.writerow(self.csv_columns)
 
                 # Write attendance record
-                writer.writerow([name, timestamp, date, status])
+                writer.writerow([name, timestamp, date, status, work_hours])
                 return True
 
         except Exception as e:
             print(f"❌ Error saving attendance: {e}")
             return False
+
+    def calculate_work_hours(self, name, date, clock_out_time):
+        """Calculate work hours between clock in and clock out"""
+        attendance_file = self.attendance_dir / f"Attendance_{date}.csv"
+
+        if not attendance_file.exists():
+            return ""
+
+        try:
+            with open(attendance_file, "r") as f:
+                reader = csv.DictReader(f)
+                records = [row for row in reader if row["NAME"] == name]
+
+                # Find the last Clock In time
+                clock_in_time = None
+                for record in reversed(records):
+                    if record["STATUS"] == "Clock In":
+                        clock_in_time = record["TIME"]
+                        break
+
+                if clock_in_time:
+                    # Calculate hours difference
+                    from datetime import datetime
+
+                    time_format = "%H:%M:%S"
+
+                    clock_in_dt = datetime.strptime(clock_in_time, time_format)
+                    clock_out_dt = datetime.strptime(clock_out_time, time_format)
+
+                    # Handle case where clock out is next day
+                    if clock_out_dt < clock_in_dt:
+                        from datetime import timedelta
+
+                        clock_out_dt += timedelta(days=1)
+
+                    time_diff = clock_out_dt - clock_in_dt
+                    hours = time_diff.total_seconds() / 3600
+                    return f"{hours:.1f}"
+
+                return ""
+
+        except Exception as e:
+            print(f"❌ Error calculating work hours: {e}")
+            return ""
 
     def recognize_face(self, face_roi):
         """Recognize face using KNN classifier"""
@@ -271,11 +326,18 @@ class AttendanceSystem:
                     current_time = datetime.now().strftime("%H:%M:%S")
                     current_date = datetime.now().strftime("%Y-%m-%d")
 
+                    # Determine Clock In or Clock Out based on current status
+                    current_status = self.get_current_status(name, current_date)
+                    if current_status is None or current_status == "Clock Out":
+                        status = "Clock In"
+                    else:
+                        status = "Clock Out"
+
                     self.current_recognition_data = {
                         "name": name,
                         "time": current_time,
                         "date": current_date,
-                        "status": "Present",
+                        "status": status,
                     }
 
                     # Gambar rectangle di sekitar wajah
