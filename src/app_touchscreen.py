@@ -24,14 +24,22 @@ except ImportError as e:
     print("❌ Scikit-learn import error:", str(e))
     sys.exit(1)
 
-app = Flask(__name__)
+# Configure Flask with proper template and static folders
+BASE_DIR = Path(__file__).parent.parent  # Go up to project root
+TEMPLATES_DIR = BASE_DIR / "templates"
+STATIC_DIR = BASE_DIR / "static"
+
+app = Flask(__name__, template_folder=str(TEMPLATES_DIR), static_folder=str(STATIC_DIR))
 
 
 class WebAttendanceSystem:
-    def __init__(self):  # Paths
+    def __init__(self):
+        # Paths
         self.base_dir = Path(__file__).parent.parent  # Go up to project root
         self.data_dir = self.base_dir / "data"  # data/ in project root
-        self.attendance_dir = self.base_dir / "Attendance"
+        self.attendance_dir = (
+            self.base_dir / "Attendance"
+        )  # Use existing Attendance folder
 
         # Create directories
         self.attendance_dir.mkdir(exist_ok=True)
