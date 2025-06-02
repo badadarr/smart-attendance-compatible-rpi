@@ -3,18 +3,20 @@ import pandas as pd
 import os
 from datetime import datetime, date
 import json
+from pathlib import Path
 
-app = Flask(__name__)
+# Define paths relative to project root
+BASE_DIR = Path(__file__).parent.parent  # Go up one level from src/
+TEMPLATES_DIR = BASE_DIR / "templates"
+STATIC_DIR = BASE_DIR / "static"
+ATTENDANCE_DIR = BASE_DIR / "Attendance"
+
+app = Flask(__name__, template_folder=str(TEMPLATES_DIR), static_folder=str(STATIC_DIR))
 
 # Create necessary directories
-if not os.path.exists("Attendance"):
-    os.makedirs("Attendance")
-
-if not os.path.exists("templates"):
-    os.makedirs("templates")
-
-if not os.path.exists("static"):
-    os.makedirs("static")
+ATTENDANCE_DIR.mkdir(exist_ok=True)
+TEMPLATES_DIR.mkdir(exist_ok=True)
+STATIC_DIR.mkdir(exist_ok=True)
 
 
 @app.route("/")
@@ -30,7 +32,7 @@ def daily_attendance():
         "%Y-%m-%d"
     )  # Menggunakan format yang sesuai dengan file CSV
 
-    attendance_file_path = f"Attendance/Attendance_{formatted_date}.csv"
+    attendance_file_path = ATTENDANCE_DIR / f"Attendance_{formatted_date}.csv"
 
     data = {
         "date": selected_date,
@@ -60,7 +62,7 @@ def daily_attendance():
 def statistics():
     attendance_files = [
         f
-        for f in os.listdir("Attendance")
+        for f in os.listdir(ATTENDANCE_DIR)
         if f.startswith("Attendance_") and f.endswith(".csv")
     ]
 
@@ -76,7 +78,7 @@ def statistics():
         try:
             all_data = []
             for file in attendance_files:
-                df = pd.read_csv(os.path.join("Attendance", file))
+                df = pd.read_csv(ATTENDANCE_DIR / file)
                 all_data.append(df)
 
             if all_data:
@@ -140,7 +142,7 @@ def download_csv():
         formatted_date = selected_date_obj.strftime(
             "%Y-%m-%d"
         )  # Format tanggal yang sesuai dengan file CSV
-        file_path = f"Attendance/Attendance_{formatted_date}.csv"
+        file_path = ATTENDANCE_DIR / f"Attendance_{formatted_date}.csv"
 
         if os.path.exists(file_path):
             return send_file(
@@ -153,11 +155,10 @@ def download_csv():
 
 
 @app.route("/download_patterns")
-def download_patterns():
-    # Generate patterns CSV and send it
+def download_patterns():  # Generate patterns CSV and send it
     attendance_files = [
         f
-        for f in os.listdir("Attendance")
+        for f in os.listdir(ATTENDANCE_DIR)
         if f.startswith("Attendance_") and f.endswith(".csv")
     ]
 
@@ -165,7 +166,7 @@ def download_patterns():
         try:
             all_data = []
             for file in attendance_files:
-                df = pd.read_csv(os.path.join("Attendance", file))
+                df = pd.read_csv(ATTENDANCE_DIR / file)
                 all_data.append(df)
 
             combined_df = pd.concat(all_data)
@@ -214,7 +215,7 @@ def download_patterns():
 def get_attendance_status():
     """API endpoint to get current attendance status for real-time updates"""
     today = datetime.now().strftime("%Y-%m-%d")  # Format tanggal sesuai dengan file CSV
-    attendance_file_path = f"Attendance/Attendance_{today}.csv"
+    attendance_file_path = ATTENDANCE_DIR / f"Attendance_{today}.csv"
 
     status = {
         "date": today,

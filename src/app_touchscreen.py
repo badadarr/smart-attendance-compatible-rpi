@@ -28,10 +28,9 @@ app = Flask(__name__)
 
 
 class WebAttendanceSystem:
-    def __init__(self):
-        # Paths
-        self.base_dir = Path(__file__).parent
-        self.data_dir = self.base_dir / "data"
+    def __init__(self):  # Paths
+        self.base_dir = Path(__file__).parent.parent  # Go up to project root
+        self.data_dir = self.base_dir / "data"  # data/ in project root
         self.attendance_dir = self.base_dir / "Attendance"
 
         # Create directories
