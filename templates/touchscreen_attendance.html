@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Touchscreen Attendance System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            font-family: 'Arial', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .camera-section {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            flex: 1;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #videoFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .status-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .recognized-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            display: none;
+        }
+
+        .touch-button {
+            background: linear-gradient(145deg, #3498db, #2980b9);
+            border: none;
+            border-radius: 15px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+            min-height: 80px;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        .touch-button:active {
+            transform: translateY(2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .record-btn {
+            background: linear-gradient(145deg, #27ae60, #229954);
+            font-size: 28px;
+            min-height: 100px;
+        }
+
+        .record-btn:hover {
+            background: linear-gradient(145deg, #229954, #1e8449);
+        }
+
+        .record-btn:disabled {
+            background: linear-gradient(145deg, #95a5a6, #7f8c8d);
+            cursor: not-allowed;
+        }
+
+        .auto-btn {
+            background: linear-gradient(145deg, #f39c12, #e67e22);
+        }
+
+        .auto-btn.active {
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+        }
+
+        .exit-btn {
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+
+        .info-panel h3 {
+            margin-bottom: 15px;
+            color: #ecf0f1;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .attendance-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .attendance-item {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification.success {
+            background: rgba(39, 174, 96, 0.9);
+        }
+
+        .notification.error {
+            background: rgba(231, 76, 60, 0.9);
+        }
+
+        .system-status {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+        }
+
+        .status-indicator.active {
+            background: #27ae60;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                padding: 10px;
+            }
+            
+            .camera-section, .controls-section {
+                flex: none;
+            }
+            
+            .camera-section {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Camera Section -->
+        <div class="camera-section">
+            <div class="video-container">
+                <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Camera Feed">
+                <div class="status-overlay">
+                    <div class="system-status">
+                        <div class="status-indicator" id="cameraStatus"></div>
+                        <span>Camera: <span id="cameraStatusText">Connecting...</span></span>
+                        <div class="status-indicator" id="autoModeStatus"></div>
+                        <span>Auto Mode: <span id="autoModeText">OFF</span></span>
+                    </div>
+                    <div id="recognitionStatus">Looking for faces...</div>
+                </div>
+                <div class="recognized-info" id="recognizedInfo">
+                    <div id="recognizedName"></div>
+                    <div id="recognizedConfidence"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="controls-section">
+            <!-- Record Button -->
+            <button class="touch-button record-btn" id="recordBtn" disabled>
+                📝 RECORD ATTENDANCE
+            </button>
+
+            <!-- Auto Mode Button -->
+            <button class="touch-button auto-btn" id="autoBtn">
+                🤖 AUTO MODE: OFF
+            </button>
+
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <h3>📊 Today's Attendance</h3>
+                <div class="attendance-list" id="attendanceList">
+                    <div class="attendance-item">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Exit Button -->
+            <button class="touch-button exit-btn" onclick="window.close()">
+                🚪 EXIT
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let autoMode = false;
+        let currentRecognition = null;
+
+        // Get DOM elements
+        const recordBtn = document.getElementById('recordBtn');
+        const autoBtn = document.getElementById('autoBtn');
+        const notification = document.getElementById('notification');
+        const recognitionStatus = document.getElementById('recognitionStatus');
+        const recognizedInfo = document.getElementById('recognizedInfo');
+        const recognizedName = document.getElementById('recognizedName');
+        const recognizedConfidence = document.getElementById('recognizedConfidence');
+        const attendanceList = document.getElementById('attendanceList');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const cameraStatusText = document.getElementById('cameraStatusText');
+        const autoModeStatus = document.getElementById('autoModeStatus');
+        const autoModeText = document.getElementById('autoModeText');
+
+        // Show notification
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // Record attendance
+        recordBtn.addEventListener('click', () => {
+            if (!currentRecognition) {
+                showNotification('No face recognized!', 'error');
+                return;
+            }
+
+            fetch('/api/record_attendance', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    loadTodayAttendance();
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Error recording attendance', 'error');
+                console.error('Error:', error);
+            });
+        });
+
+        // Toggle auto mode
+        autoBtn.addEventListener('click', () => {
+            fetch('/api/toggle_auto_mode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    autoMode = data.auto_mode;
+                    updateAutoModeUI();
+                    showNotification(data.message, 'success');
+                }
+            })
+            .catch(error => {
+                showNotification('Error toggling auto mode', 'error');
+                console.error('Error:', error);
+            });
+        });
+
+        // Update auto mode UI
+        function updateAutoModeUI() {
+            if (autoMode) {
+                autoBtn.textContent = '🤖 AUTO MODE: ON';
+                autoBtn.classList.add('active');
+                autoModeStatus.classList.add('active');
+                autoModeText.textContent = 'ON';
+            } else {
+                autoBtn.textContent = '🤖 AUTO MODE: OFF';
+                autoBtn.classList.remove('active');
+                autoModeStatus.classList.remove('active');
+                autoModeText.textContent = 'OFF';
+            }
+        }
+
+        // Update recognition UI
+        function updateRecognitionUI(recognition) {
+            if (recognition) {
+                currentRecognition = recognition;
+                recognitionStatus.textContent = `Ready to record: ${recognition.name}`;
+                recognizedInfo.style.display = 'block';
+                recognizedName.textContent = `Name: ${recognition.name}`;
+                recognizedConfidence.textContent = `Confidence: ${(recognition.confidence * 100).toFixed(1)}%`;
+                recordBtn.disabled = false;
+            } else {
+                currentRecognition = null;
+                recognitionStatus.textContent = 'Looking for faces...';
+                recognizedInfo.style.display = 'none';
+                recordBtn.disabled = true;
+            }
+        }
+
+        // Load today's attendance
+        function loadTodayAttendance() {
+            fetch('/api/attendance_today')
+            .then(response => response.json())
+            .then(data => {
+                attendanceList.innerHTML = '';
+                if (data.records && data.records.length > 0) {
+                    data.records.forEach(record => {
+                        const item = document.createElement('div');
+                        item.className = 'attendance-item';
+                        item.innerHTML = `
+                            <strong>${record.NAME}</strong><br>
+                            ${record.TIME} - ${record.STATUS}
+                        `;
+                        attendanceList.appendChild(item);
+                    });
+                } else {
+                    attendanceList.innerHTML = '<div class="attendance-item">No records yet today</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading attendance:', error);
+                attendanceList.innerHTML = '<div class="attendance-item">Error loading data</div>';
+            });
+        }
+
+        // Check system status
+        function checkStatus() {
+            fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                // Update auto mode
+                autoMode = data.auto_mode;
+                updateAutoModeUI();
+
+                // Update recognition status
+                updateRecognitionUI(data.current_recognition);
+
+                // Update camera status
+                cameraStatus.classList.add('active');
+                cameraStatusText.textContent = 'Connected';
+            })
+            .catch(error => {
+                console.error('Status check error:', error);
+                cameraStatus.classList.remove('active');
+                cameraStatusText.textContent = 'Error';
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTodayAttendance();
+            checkStatus();
+            
+            // Set up periodic status checks
+            setInterval(checkStatus, 1000);
+            setInterval(loadTodayAttendance, 5000);
+        });
+
+        // Handle video feed errors
+        document.getElementById('videoFeed').addEventListener('error', () => {
+            cameraStatus.classList.remove('active');
+            cameraStatusText.textContent = 'Error';
+        });
+
+        document.getElementById('videoFeed').addEventListener('load', () => {
+            cameraStatus.classList.add('active');
+            cameraStatusText.textContent = 'Connected';
+        });
+
+        // Prevent context menu on touch devices
+        document.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', event => {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+</body>
+</html>

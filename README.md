@@ -13,6 +13,8 @@ A complete face recognition attendance system designed specifically for Raspberr
 - **Data Export**: CSV export functionality for attendance records
 - **Statistics**: Comprehensive attendance analytics
 - **Raspberry Pi Optimized**: Performance tuned for RPi 4
+- **🖥️ Touchscreen Support**: HDMI touchscreen compatible (no keyboard required)
+- **🎯 Multiple Interfaces**: Desktop app, web interface, and auto-record modes
 
 ## 📁 Project Structure
 
@@ -120,12 +122,54 @@ python add_faces_rpi.py
 # Choose option 1: Start Attendance Recognition
 ```
 
-### 4. Access Web Dashboard
+### 4. For Touchscreen Displays (No Keyboard)
 ```bash
 ./start.sh
-# Choose option 2: Start Web Dashboard
+# Choose option 2: Start Touchscreen Attendance (Touch Interface)
+# OR choose option 4: Start Touchscreen Web Interface
+```
+
+### 5. Access Web Dashboard
+```bash
+./start.sh
+# Choose option 3: Start Web Dashboard
 # Open browser: http://your-pi-ip:5000
 ```
+
+## 🖥️ Touchscreen Support
+
+Perfect for HDMI display touchscreens - **no keyboard required!**
+
+### Available Interfaces:
+
+1. **Desktop Touchscreen App** (`take_attendance_touchscreen.py`)
+   - ✅ Fullscreen touch interface
+   - ✅ Large touch buttons (RECORD, AUTO MODE, EXIT)
+   - ✅ Auto-record mode for hands-free operation
+   - ✅ Visual feedback and status display
+
+2. **Web Touchscreen Interface** (`app_touchscreen.py`)
+   - ✅ Browser-based touch interface
+   - ✅ Real-time video streaming
+   - ✅ Multi-device access
+   - ✅ Modern responsive UI
+
+3. **Auto Record Mode**
+   - ✅ Automatically saves attendance when face detected
+   - ✅ Perfect for entrance/exit points
+   - ✅ 5-second cooldown between recordings
+   - ✅ No user interaction required
+
+### Quick Start for Touchscreen:
+```bash
+# Desktop touch interface
+./start.sh → Option 2
+
+# Web touch interface  
+./start.sh → Option 4 → Access via browser
+```
+
+**📖 Detailed Guide**: See [`TOUCHSCREEN_SOLUTIONS.md`](TOUCHSCREEN_SOLUTIONS.md)
 
 ## 🔧 Troubleshooting
 

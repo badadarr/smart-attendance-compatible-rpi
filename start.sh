@@ -46,24 +46,26 @@ echo ""
 echo "🚀 Starting Face Recognition Attendance System..."
 echo ""
 echo "📋 Available options:"
-echo "1. Start Attendance Recognition (Recommended)"
-echo "2. Start Web Dashboard Only"
-echo "3. Register New Faces"
-echo "4. System Check"
-echo "5. Performance Monitor"
-echo "6. Backup & Restore"
-echo "7. Validate Setup"
-echo "8. Troubleshoot"
-echo "9. Exit"
+echo "1. Start Attendance Recognition (Keyboard/Mouse)"
+echo "2. Start Touchscreen Attendance (No Keyboard Needed)"
+echo "3. Start Web Dashboard Only"
+echo "4. Start Touchscreen Web Interface"
+echo "5. Register New Faces"
+echo "6. System Check"
+echo "7. Performance Monitor"
+echo "8. Backup & Restore"
+echo "9. Validate Setup"
+echo "10. Troubleshoot"
+echo "11. Exit"
 echo ""
 
 while true; do
-    echo -n "Please select an option (1-9): " choice
+    echo -n "Please select an option (1-11): " choice
     read -r choice
     
     case $choice in
         1)
-            echo "🎯 Starting attendance recognition..."
+            echo "🎯 Starting attendance recognition (keyboard/mouse)..."
             echo "📝 Instructions:"
             echo "   - Press SPACE to record attendance"
             echo "   - Press 'q' to quit"
@@ -73,6 +75,16 @@ while true; do
             break
             ;;
         2)
+            echo "📱 Starting touchscreen attendance system..."
+            echo "📝 Instructions:"
+            echo "   - Touch buttons to interact"
+            echo "   - No keyboard needed"
+            echo "   - Fullscreen touchscreen interface"
+            echo ""
+            python take_attendance_touchscreen.py
+            break
+            ;;
+        3)
             echo "🌐 Starting web dashboard..."
             echo "📱 Access at: http://$(hostname -I | awk '{print $1}'):5000"
             echo "⚠️  Press Ctrl+C to stop"
@@ -80,41 +92,50 @@ while true; do
             python app.py
             break
             ;;
-        3)
+        4)
+            echo "📱 Starting touchscreen web interface..."
+            echo "🌐 Access at: http://$(hostname -I | awk '{print $1}'):5001"
+            echo "📝 Perfect for touchscreen displays"
+            echo "⚠️  Press Ctrl+C to stop"
+            echo ""
+            python app_touchscreen.py
+            break
+            ;;
+        5)
             echo "👤 Starting face registration..."
             python add_faces_rpi.py
             ;;
-        4)
+        6)
             echo "🔍 Running system check..."
             python scripts/maintenance/system_check.py
             echo ""
             ;;
-        5)
+        7)
             echo "⚡ Starting performance monitor..."
             python scripts/maintenance/performance_monitor.py
             echo ""
             ;;
-        6)
+        8)
             echo "💾 Opening backup & restore menu..."
             scripts/maintenance/backup_restore.sh
             echo ""
             ;;
-        7)
+        9)
             echo "✅ Running setup validation..."
             python scripts/maintenance/validate_setup.py
             echo ""
             ;;
-        8)
+        10)
             echo "🔧 Running troubleshoot script..."
             scripts/troubleshooting/troubleshoot.sh
             echo ""
             ;;
-        9)
+        11)
             echo "👋 Goodbye!"
             exit 0
             ;;
         *)
-            echo "❌ Invalid option. Please select 1-9."
+            echo "❌ Invalid option. Please select 1-11."
             ;;
     esac
 done
