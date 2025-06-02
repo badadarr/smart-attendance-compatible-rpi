@@ -130,9 +130,9 @@ class TouchscreenAttendanceSystem:
                     print(f"📹 Camera initialized on index {camera_idx}")
                     break
             else:
-                raise Exception("No camera found")
-
-            # Set camera properties for Raspberry Pi optimization
+                raise Exception(
+                    "No camera found"
+                )  # Set camera properties for Raspberry Pi optimization (5 inch display)
             self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.video.set(cv2.CAP_PROP_FPS, 15)
@@ -233,7 +233,6 @@ class TouchscreenAttendanceSystem:
         """Check if enough time has passed since last auto recording"""
         current_time = time.time()
         last_time = self.last_auto_record.get(name, 0)
-
         if current_time - last_time >= self.auto_record_cooldown:
             self.last_auto_record[name] = current_time
             return True
@@ -241,88 +240,88 @@ class TouchscreenAttendanceSystem:
         return False
 
     def mouse_callback(self, event, x, y, flags, param):
-        """Handle mouse/touch events"""
+        """Handle mouse/touch events for 5 inch display"""
         if event == cv2.EVENT_LBUTTONDOWN:
-            # Check if click is on Record button area (bottom left)
-            if 50 <= x <= 250 and 650 <= y <= 700:
+            # Check if click is on Record button area (30,425 to 180,465 for 800x480)
+            if 30 <= x <= 180 and 425 <= y <= 465:
                 self.button_clicked = True
                 print("👆 Record button clicked!")
 
-            # Check if click is on Exit button area (bottom right)
-            elif 1030 <= x <= 1230 and 650 <= y <= 700:
+            # Check if click is on Exit button area (620,425 to 770,465 for 800x480)
+            elif 620 <= x <= 770 and 425 <= y <= 465:
                 self.exit_clicked = True
                 print("👆 Exit button clicked!")
 
-            # Check if click is on Auto Mode toggle (bottom center)
-            elif 515 <= x <= 765 and 650 <= y <= 700:
+            # Check if click is on Auto Mode toggle (310,425 to 490,465 for 800x480)
+            elif 310 <= x <= 490 and 425 <= y <= 465:
                 self.auto_record_mode = not self.auto_record_mode
                 status = "ON" if self.auto_record_mode else "OFF"
                 print(f"👆 Auto Record Mode: {status}")
 
     def draw_touchscreen_ui(self, frame, recognized_name=None):
-        """Draw touchscreen-friendly UI elements"""
+        """Draw touchscreen-friendly UI elements optimized for 5 inch display"""
         height, width = frame.shape[:2]
 
-        # Create buttons at the bottom
-        button_height = 50
-        button_y = height - 70
+        # Create smaller buttons for 5 inch display
+        button_height = 40
+        button_y = height - 55
 
-        # Record Attendance Button (Green)
+        # Record Attendance Button (Green) - smaller for 5 inch
         cv2.rectangle(
-            frame, (50, button_y), (250, button_y + button_height), (0, 200, 0), -1
+            frame, (30, button_y), (180, button_y + button_height), (0, 200, 0), -1
         )
         cv2.rectangle(
-            frame, (50, button_y), (250, button_y + button_height), (255, 255, 255), 2
+            frame, (30, button_y), (180, button_y + button_height), (255, 255, 255), 2
         )
         cv2.putText(
             frame,
             "RECORD",
-            (80, button_y + 35),
+            (45, button_y + 28),
             cv2.FONT_HERSHEY_SIMPLEX,
-            1,
+            0.7,
             (255, 255, 255),
             2,
         )
 
-        # Exit Button (Red)
+        # Exit Button (Red) - smaller for 5 inch
         cv2.rectangle(
             frame,
-            (width - 250, button_y),
-            (width - 50, button_y + button_height),
+            (width - 180, button_y),
+            (width - 30, button_y + button_height),
             (0, 0, 200),
             -1,
         )
         cv2.rectangle(
             frame,
-            (width - 250, button_y),
-            (width - 50, button_y + button_height),
+            (width - 180, button_y),
+            (width - 30, button_y + button_height),
             (255, 255, 255),
             2,
         )
         cv2.putText(
             frame,
             "EXIT",
-            (width - 200, button_y + 35),
+            (width - 150, button_y + 28),
             cv2.FONT_HERSHEY_SIMPLEX,
-            1,
+            0.7,
             (255, 255, 255),
             2,
         )
 
-        # Auto Mode Toggle Button (Blue/Gray)
+        # Auto Mode Toggle Button (Blue/Gray) - smaller for 5 inch
         auto_color = (200, 100, 0) if self.auto_record_mode else (100, 100, 100)
         center_x = width // 2
         cv2.rectangle(
             frame,
-            (center_x - 125, button_y),
-            (center_x + 125, button_y + button_height),
+            (center_x - 90, button_y),
+            (center_x + 90, button_y + button_height),
             auto_color,
             -1,
         )
         cv2.rectangle(
             frame,
-            (center_x - 125, button_y),
-            (center_x + 125, button_y + button_height),
+            (center_x - 90, button_y),
+            (center_x + 90, button_y + button_height),
             (255, 255, 255),
             2,
         )
@@ -330,24 +329,22 @@ class TouchscreenAttendanceSystem:
         cv2.putText(
             frame,
             auto_text,
-            (center_x - 80, button_y + 35),
+            (center_x - 60, button_y + 28),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
             (255, 255, 255),
             2,
-        )
-
-        # Status display
-        status_y = 30
+        )  # Status display - smaller text for 5 inch
+        status_y = 25
         if recognized_name:
             if self.auto_record_mode:
                 status_text = f"Auto Mode: {recognized_name} detected"
                 cv2.putText(
                     frame,
                     status_text,
-                    (50, status_y),
+                    (30, status_y),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
+                    0.6,
                     (0, 255, 0),
                     2,
                 )
@@ -356,9 +353,9 @@ class TouchscreenAttendanceSystem:
                 cv2.putText(
                     frame,
                     status_text,
-                    (50, status_y),
+                    (30, status_y),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
+                    0.6,
                     (0, 255, 255),
                     2,
                 )
@@ -366,29 +363,29 @@ class TouchscreenAttendanceSystem:
             cv2.putText(
                 frame,
                 "No face recognized",
-                (50, status_y),
+                (30, status_y),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
+                0.6,
                 (0, 0, 255),
                 2,
             )
 
-        # Instructions
+        # Instructions - smaller for 5 inch display
         instructions = [
-            "Touchscreen Attendance System",
-            "Touch RECORD button to save attendance",
-            "Touch AUTO to enable automatic recording",
+            "5-inch Touchscreen Attendance",
+            "Touch RECORD to save attendance",
+            "Touch AUTO for automatic mode",
             "Touch EXIT to quit",
         ]
 
         for i, instruction in enumerate(instructions):
-            y_pos = 80 + (i * 25)
+            y_pos = 55 + (i * 20)
             cv2.putText(
                 frame,
                 instruction,
-                (50, y_pos),
+                (30, y_pos),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
+                0.5,
                 (255, 255, 255),
                 1,
             )
@@ -423,10 +420,8 @@ class TouchscreenAttendanceSystem:
                 print("❌ Error reading from camera")
                 break
 
-            frame_count += 1
-
-            # Resize frame to fit screen better
-            frame = cv2.resize(frame, (1280, 720))
+            frame_count += 1  # Resize frame for 5 inch display (smaller size)
+            frame = cv2.resize(frame, (800, 480))
 
             # Face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -544,15 +539,15 @@ class TouchscreenAttendanceSystem:
                         ):
                             message = f"Attendance recorded: {data['name']} - {data['status']}"
                             self.speak(message)
-                            print(f"✅ {message}")
-
-                            # Visual feedback
+                            print(
+                                f"✅ {message}"
+                            )  # Visual feedback - adjusted for 800x480 display
                             cv2.putText(
                                 frame,
                                 "RECORDED!",
-                                (640, 400),
+                                (300, 240),
                                 cv2.FONT_HERSHEY_SIMPLEX,
-                                2,
+                                1.5,
                                 (0, 255, 0),
                                 3,
                             )

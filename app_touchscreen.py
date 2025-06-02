@@ -189,10 +189,8 @@ class WebAttendanceSystem:
 
             ret, frame = self.video.read()
             if not ret:
-                continue
-
-            # Resize frame
-            frame = cv2.resize(frame, (640, 480))
+                continue  # Resize frame for 5-inch display
+            frame = cv2.resize(frame, (800, 480))
 
             # Face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -221,16 +219,14 @@ class WebAttendanceSystem:
                         "date": current_date,
                         "status": "Present",
                         "confidence": confidence,
-                    }
-
-                    # Draw recognition on frame
+                    }  # Draw recognition on frame (optimized for 5-inch display)
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                     cv2.putText(
                         frame,
                         name,
                         (x, y - 30),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        0.8,
+                        0.6,  # Reduced font scale for 5-inch display
                         (0, 255, 0),
                         2,
                     )
@@ -239,7 +235,7 @@ class WebAttendanceSystem:
                         f"{confidence*100:.1f}%",
                         (x, y - 10),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
+                        0.5,  # Reduced font scale for 5-inch display
                         (0, 255, 0),
                         2,
                     )
