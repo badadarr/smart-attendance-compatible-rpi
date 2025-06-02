@@ -147,6 +147,42 @@ class WebAttendanceSystem:
         except Exception as e:
             return None, 0.0
 
+    def get_all_records_today(self, name, date):
+        """Get all attendance records for a person today"""
+        attendance_file = self.attendance_dir / f"Attendance_{date}.csv"
+
+        if not attendance_file.exists():
+            return []
+
+        try:
+            with open(attendance_file, "r") as f:
+                reader = csv.DictReader(f)
+                return [row for row in reader if row["NAME"] == name]
+        except:
+            return []
+
+    def determine_attendance_status(self, name, current_time, date):
+        """Determine if this should be Clock In or Clock Out"""
+        records = self.get_all_records_today(name, date)
+
+        if not records:
+            return "Clock In"
+
+        # Get the last status
+        last_status = records[-1]["STATUS"]
+
+        # If last status was Clock In, this should be Clock Out
+        if last_status == "Clock In":
+            return "Clock Out"
+        # If last status was Clock Out, this should be Clock In
+        elif last_status == "Clock Out":
+            return "Clock In"
+        # For backward compatibility with old "Present" status
+        elif last_status == "Present":
+            return "Clock Out"
+
+        return "Clock In"
+
     def save_attendance(self, name, timestamp, date, status):
         """Save attendance record"""
         attendance_file = self.attendance_dir / f"Attendance_{date}.csv"
@@ -188,6 +224,43 @@ class WebAttendanceSystem:
 
         return False
 
+    def get_all_records_today(self, name, date):
+        """Get all records for a person on a specific date"""
+        attendance_folder = "Attendance"
+        file_path = os.path.join(attendance_folder, f"Attendance_{date}.csv")
+
+        records = []
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row["NAME"] == name:
+                            records.append(row)
+            except Exception as e:
+                print(f"Error reading attendance file: {e}")
+
+        return records
+
+    def determine_attendance_status(self, name, current_time, date):
+        """Determine appropriate attendance status based on previous records"""
+        records = self.get_all_records_today(name, date)
+
+        if not records:
+            return "Clock In"
+
+        # Get the last record
+        last_status = records[-1]["STATUS"]
+
+        if last_status == "Clock In":
+            return "Clock Out"
+        elif last_status == "Clock Out":
+            return "Clock In"
+        elif last_status == "Present":  # Backward compatibility
+            return "Clock Out"
+        else:
+            return "Clock In"
+
     def generate_frames(self):
         """Generate video frames for streaming"""
         while self.camera_running:
@@ -215,16 +288,20 @@ class WebAttendanceSystem:
                 face_roi = frame[y : y + h, x : x + w]
                 name, confidence = self.recognize_face(face_roi)
 
-                if name is not None:
-                    # Store recognition data
+                if name is not None:  # Store recognition data
                     current_time = datetime.now().strftime("%H:%M:%S")
                     current_date = datetime.now().strftime("%Y-%m-%d")
+
+                    # Determine appropriate attendance status
+                    attendance_status = self.determine_attendance_status(
+                        name, current_time, current_date
+                    )
 
                     self.current_recognition_data = {
                         "name": name,
                         "time": current_time,
                         "date": current_date,
-                        "status": "Present",
+                        "status": attendance_status,
                         "confidence": confidence,
                     }  # Draw recognition on frame (optimized for 5-inch display)
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)

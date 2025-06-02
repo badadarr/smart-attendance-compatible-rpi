@@ -243,5 +243,156 @@ def get_attendance_status():
     return jsonify(status)
 
 
+@app.route("/dashboard")
+def dashboard():
+    """Dashboard dengan analisis attendance"""
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Initialize dashboard data
+    dashboard_data = {
+        "today_summary": None,
+        "recent_activity": [],
+        "system_status": {
+            "components": {
+                "attendance_system": {"enabled": True, "status": "active"},
+                "data_storage": {"enabled": True, "status": "active"},
+                "web_interface": {"enabled": True, "status": "active"},
+            },
+            "metrics": {
+                "total_users": 0,
+                "total_records": 0,
+                "system_uptime": "Running",
+                "last_backup": "None",
+            },
+        },
+        "analytics_charts": None,
+    }
+
+    try:
+        # Get today's summary
+        today_file = ATTENDANCE_DIR / f"Attendance_{today}.csv"
+        if today_file.exists():
+            df_today = pd.read_csv(today_file)
+
+            # Calculate today's summary
+            present_today = df_today[df_today["STATUS"] == "Present"]
+            unique_people = present_today[
+                "NAME"
+            ].nunique()  # Convert top attendees to proper format for template
+            top_attendees_counts = present_today["NAME"].value_counts().head(5)
+            top_attendees_list = [
+                {"name": name, "count": count}
+                for name, count in top_attendees_counts.items()
+            ]
+
+            dashboard_data["today_summary"] = {
+                "total_present": unique_people,
+                "total_entries": len(df_today),
+                "attendance_rate": (
+                    unique_people / max(len(df_today["NAME"].unique()), 1)
+                )
+                * 100,
+                "new_registrations": 0,  # Could be calculated based on new names
+                "top_attendees": top_attendees_list,
+            }
+
+            # Get recent activity (last 10 entries)
+            recent_entries = df_today.tail(10).to_dict("records")
+            dashboard_data["recent_activity"] = recent_entries
+
+        # Calculate system metrics
+        all_files = list(ATTENDANCE_DIR.glob("Attendance_*.csv"))
+        total_records = 0
+        unique_users = set()
+
+        for file in all_files:
+            try:
+                df = pd.read_csv(file)
+                total_records += len(df)
+                unique_users.update(df["NAME"].unique())
+            except:
+                continue
+
+        dashboard_data["system_status"]["metrics"]["total_users"] = len(unique_users)
+        dashboard_data["system_status"]["metrics"]["total_records"] = total_records
+
+    except Exception as e:
+        print(f"Error generating dashboard data: {e}")
+
+    return render_template("dashboard.html", data=dashboard_data)
+
+
+@app.route("/settings")
+def settings():
+    """Settings page"""
+    return render_template("settings.html")
+
+
+@app.route("/api/settings/current")
+def get_current_settings():
+    """Get current system settings"""
+    try:
+        # Default settings
+        settings = {
+            "system_name": "Smart Attendance System",
+            "timezone": "Asia/Jakarta",
+            "backup_enabled": True,
+            "auto_backup_days": 7,
+            "items_per_page": 25,
+            "show_timestamps": True,
+            "enable_logging": False,
+            "session_timeout": 60,
+        }
+
+        # Try to load from config file if exists
+        config_file = BASE_DIR / "config" / "settings.json"
+        if config_file.exists():
+            try:
+                with open(config_file, "r") as f:
+                    saved_settings = json.load(f)
+                    settings.update(saved_settings)
+            except:
+                pass
+
+        return jsonify(settings)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings/save", methods=["POST"])
+def save_settings():
+    """Save system settings"""
+    try:
+        settings = request.get_json()
+
+        # Ensure config directory exists
+        config_dir = BASE_DIR / "config"
+        config_dir.mkdir(exist_ok=True)
+
+        # Save settings to file
+        config_file = config_dir / "settings.json"
+        with open(config_file, "w") as f:
+            json.dump(settings, f, indent=2)
+
+        return jsonify({"success": True, "message": "Settings saved successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/system/status")
+def get_system_status():
+    """API untuk mendapatkan status sistem real-time"""
+    status = {
+        "components": {
+            "attendance_system": {"enabled": True, "status": "active"},
+            "data_storage": {"enabled": True, "status": "active"},
+            "web_interface": {"enabled": True, "status": "active"},
+        },
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    return jsonify(status)
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Smart Attendance System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            margin: 20px;
+        }
+        .error-icon {
+            font-size: 4rem;
+            color: #dc3545;
+            margin-bottom: 1rem;
+        }
+        .error-code {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .error-message {
+            color: #666;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+        .error-details {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: left;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #666;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+        }
+        .btn-secondary {
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+        }
+        .navbar-brand {
+            color: white !important;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <!-- Error Icon -->
+        <div class="error-icon">
+            {% if error_code == 404 %}
+                <i class="fas fa-search"></i>
+            {% elif error_code == 500 %}
+                <i class="fas fa-exclamation-triangle"></i>
+            {% elif error_code == 403 %}
+                <i class="fas fa-lock"></i>
+            {% elif error_code == 400 %}
+                <i class="fas fa-exclamation-circle"></i>
+            {% else %}
+                <i class="fas fa-bug"></i>
+            {% endif %}
+        </div>
+
+        <!-- Error Code -->
+        <div class="error-code">
+            {{ error_code or 'ERROR' }}
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message">
+            {% if error_code == 404 %}
+                Page Not Found
+            {% elif error_code == 500 %}
+                Internal Server Error
+            {% elif error_code == 403 %}
+                Access Forbidden
+            {% elif error_code == 400 %}
+                Bad Request
+            {% else %}
+                Something went wrong
+            {% endif %}
+        </div>
+
+        <!-- Error Description -->
+        <p class="text-muted">
+            {% if error_message %}
+                {{ error_message }}
+            {% elif error_code == 404 %}
+                The page you're looking for doesn't exist or has been moved.
+            {% elif error_code == 500 %}
+                We're experiencing technical difficulties. Please try again later.
+            {% elif error_code == 403 %}
+                You don't have permission to access this resource.
+            {% elif error_code == 400 %}
+                The request could not be understood by the server.
+            {% else %}
+                An unexpected error occurred. Please contact support if the problem persists.
+            {% endif %}
+        </p>
+
+        <!-- Error Details (for development/debugging) -->
+        {% if error_details and config.DEBUG %}
+        <div class="error-details">
+            <strong>Error Details:</strong><br>
+            {{ error_details | safe }}
+        </div>
+        {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="d-flex gap-2 justify-content-center mt-3">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-home me-1"></i>Go Home
+            </a>
+            <button onclick="history.back()" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Go Back
+            </button>
+            <button onclick="location.reload()" class="btn btn-outline-secondary">
+                <i class="fas fa-redo me-1"></i>Retry
+            </button>
+        </div>
+
+        <!-- System Status Link -->
+        <div class="mt-3">
+            <a href="{{ url_for('dashboard') }}" class="text-decoration-none">
+                <i class="fas fa-chart-bar me-1"></i>Check System Status
+            </a>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="mt-4 pt-3 border-top">
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                If this problem persists, please contact system administrator.
+                <br>
+                Error ID: {{ error_id or 'N/A' }} | Time: <span id="error-time"></span>
+            </small>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Display current time
+        document.getElementById('error-time').textContent = new Date().toLocaleString();
+        
+        // Auto-redirect for certain errors after delay
+        {% if error_code == 500 %}
+        setTimeout(function() {
+            if (confirm('Would you like to return to the home page?')) {
+                window.location.href = "{{ url_for('index') }}";
+            }
+        }, 10000); // 10 seconds
+        {% endif %}
+        
+        // Log error for tracking (if analytics is available)
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'error', {
+                'error_code': '{{ error_code }}',
+                'error_message': '{{ error_message }}',
+                'page_url': window.location.href
+            });
+        }
+    </script>
+</body>
+</html>
