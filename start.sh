@@ -17,7 +17,7 @@ echo "🐍 Activating virtual environment..."
 source venv/bin/activate
 
 # Check if this is first run (no training data)
-if [ ! -f "data/faces_data.pkl" ] || [ ! -f "data/names.pkl" ]; then
+if [ ! -f "src/data/faces_data.pkl" ] || [ ! -f "src/data/names.pkl" ]; then
     echo ""
     echo "👤 No training data found!"
     echo "📝 You need to register faces first."
