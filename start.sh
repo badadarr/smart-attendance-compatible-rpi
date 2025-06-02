@@ -86,27 +86,27 @@ while true; do
             ;;
         4)
             echo "🔍 Running system check..."
-            python system_check.py
+            python scripts/maintenance/system_check.py
             echo ""
             ;;
         5)
             echo "⚡ Starting performance monitor..."
-            python performance_monitor.py
+            python scripts/maintenance/performance_monitor.py
             echo ""
             ;;
         6)
             echo "💾 Opening backup & restore menu..."
-            ./backup_restore.sh
+            scripts/maintenance/backup_restore.sh
             echo ""
             ;;
         7)
             echo "✅ Running setup validation..."
-            python validate_setup.py
+            python scripts/maintenance/validate_setup.py
             echo ""
             ;;
         8)
             echo "🔧 Running troubleshoot script..."
-            ./troubleshoot.sh
+            scripts/troubleshooting/troubleshoot.sh
             echo ""
             ;;
         9)

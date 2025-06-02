@@ -1,10 +1,18 @@
 import cv2
 import pickle
-import numpy as np
 import os
 import time
 import sys
 from pathlib import Path
+
+# Handle NumPy import with error handling for Raspberry Pi
+try:
+    import numpy as np
+except ImportError as e:
+    print("❌ NumPy import error:", str(e))
+    print("💡 Try running: scripts/troubleshooting/fix_rpi_installation.sh")
+    print("💡 Or manually: pip uninstall numpy -y && pip install numpy==1.24.3")
+    sys.exit(1)
 
 
 class FaceRegistration:

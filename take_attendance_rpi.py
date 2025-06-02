@@ -1,13 +1,28 @@
 import cv2
 import pickle
-import numpy as np
 import os
 import csv
 import time
 from datetime import datetime
-from sklearn.neighbors import KNeighborsClassifier
 from pathlib import Path
 import sys
+
+# Handle NumPy import with error handling for Raspberry Pi
+try:
+    import numpy as np
+except ImportError as e:
+    print("❌ NumPy import error:", str(e))
+    print("💡 Try running: scripts/troubleshooting/fix_rpi_installation.sh")
+    print("💡 Or manually: pip uninstall numpy -y && pip install numpy==1.24.3")
+    sys.exit(1)
+
+# Handle scikit-learn import
+try:
+    from sklearn.neighbors import KNeighborsClassifier
+except ImportError as e:
+    print("❌ Scikit-learn import error:", str(e))
+    print("💡 Try running: scripts/troubleshooting/fix_rpi_installation.sh")
+    sys.exit(1)
 
 # Try to import speech synthesis (optional)
 try:
