@@ -144,43 +144,49 @@ class SetupValidator:
                 else:
                     self.log_fail(f"System Package: {package}", "not installed")
             except (subprocess.TimeoutExpired, FileNotFoundError):
-                self.log_warning(f"System Package: {package}", "cannot verify")
-
-    def validate_file_structure(self):
+                self.log_warning(f"System Package: {package}", "cannot verify")    def validate_file_structure(self):
         """Validate project file structure"""
         print("\n📁 File Structure Validation")
         print("=" * 50)
 
+        # Get project root (2 levels up from scripts/maintenance/)
+        project_root = self.script_dir.parent.parent
+
         required_files = [
             "app.py",
             "add_faces_rpi.py",
-            "take_attendance_rpi.py",
+            "take_attendance_rpi.py", 
             "requirements.txt",
             "config.ini",
             "README.md",
-            "install_rpi.sh",
             "start.sh",
-            "system_check.py",
+            ("scripts/installation/install_rpi.sh", "install_rpi.sh"),
+            ("scripts/maintenance/system_check.py", "system_check.py"),
         ]
 
-        required_dirs = ["data", "templates"]
+        required_dirs = ["data", "templates", "scripts", "static"]
 
-        for file_name in required_files:
-            file_path = self.script_dir / file_name
-            if file_path.exists():
-                self.log_pass(f"File: {file_name}")
+        for file_item in required_files:
+            if isinstance(file_item, tuple):
+                file_path, display_name = file_item
+                full_path = project_root / file_path
             else:
-                self.log_fail(f"File: {file_name}", "missing")
+                file_path = file_item
+                display_name = file_item
+                full_path = project_root / file_path
+                
+            if full_path.exists():
+                self.log_pass(f"File: {display_name}")
+            else:
+                self.log_fail(f"File: {display_name}", "missing")
 
         for dir_name in required_dirs:
-            dir_path = self.script_dir / dir_name
+            dir_path = project_root / dir_name
             if dir_path.exists() and dir_path.is_dir():
                 self.log_pass(f"Directory: {dir_name}")
             else:
-                self.log_fail(f"Directory: {dir_name}", "missing")
-
-        # Check data directory contents
-        data_dir = self.script_dir / "data"
+                self.log_fail(f"Directory: {dir_name}", "missing")        # Check data directory contents
+        data_dir = project_root / "data"
         if data_dir.exists():
             required_data_files = ["haarcascade_frontalface_default.xml"]
 
@@ -223,33 +229,41 @@ class SetupValidator:
 
         if not camera_found:
             self.log_fail("Camera Setup", "no cameras detected")
-            self.log_recommendation("Ensure camera is connected and enabled")
-
-    def validate_permissions(self):
+            self.log_recommendation("Ensure camera is connected and enabled")    def validate_permissions(self):
         """Validate file permissions"""
         print("\n🔐 Permissions Validation")
         print("=" * 50)
 
+        # Get project root (2 levels up from scripts/maintenance/)
+        project_root = self.script_dir.parent.parent
+
         # Check script permissions
         script_files = [
-            "install_rpi.sh",
-            "start.sh",
-            "troubleshoot.sh",
-            "backup_restore.sh",
+            ("scripts/installation/install_rpi.sh", "install_rpi.sh"),
+            ("start.sh", "start.sh"),
+            ("scripts/troubleshooting/troubleshoot.sh", "troubleshoot.sh"),
+            ("scripts/maintenance/backup_restore.sh", "backup_restore.sh"),
         ]
 
-        for script in script_files:
-            script_path = self.script_dir / script
-            if script_path.exists():
-                if os.access(script_path, os.X_OK):
-                    self.log_pass(f"Execute Permission: {script}")
-                else:
-                    self.log_fail(f"Execute Permission: {script}", "not executable")
+        for script_item in script_files:
+            if isinstance(script_item, tuple):
+                script_path, display_name = script_item
+                full_path = project_root / script_path
             else:
-                self.log_warning(f"Script: {script}", "not found")
+                script_path = script_item
+                display_name = script_item
+                full_path = project_root / script_path
+                
+            if full_path.exists():
+                if os.access(full_path, os.X_OK):
+                    self.log_pass(f"Execute Permission: {display_name}")
+                else:
+                    self.log_fail(f"Execute Permission: {display_name}", "not executable")
+            else:
+                self.log_warning(f"Script: {display_name}", "not found")
 
         # Check data directory permissions
-        data_dir = self.script_dir / "data"
+        data_dir = project_root / "data"
         if data_dir.exists():
             if os.access(data_dir, os.W_OK):
                 self.log_pass("Data Directory", "writable")
@@ -273,15 +287,16 @@ class SetupValidator:
                     "Add user to video group: sudo usermod -a -G video $USER"
                 )
         except KeyError:
-            self.log_warning("Video Group", "cannot check membership")
-
-    def validate_configuration(self):
+            self.log_warning("Video Group", "cannot check membership")    def validate_configuration(self):
         """Validate configuration files"""
         print("\n⚙️  Configuration Validation")
         print("=" * 50)
 
+        # Get project root (2 levels up from scripts/maintenance/)
+        project_root = self.script_dir.parent.parent
+
         # Check config.ini
-        config_file = self.script_dir / "config.ini"
+        config_file = project_root / "config.ini"
         if config_file.exists():
             try:
                 import configparser
@@ -302,7 +317,7 @@ class SetupValidator:
             self.log_fail("Config File", "config.ini not found")
 
         # Check requirements.txt
-        req_file = self.script_dir / "requirements.txt"
+        req_file = project_root / "requirements.txt"
         if req_file.exists():
             try:
                 with open(req_file, "r") as f:
