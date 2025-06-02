@@ -29,3 +29,7 @@ This directory contains all project documentation and guides.
 
 - **Main README**: `../README.md` - Project overview and basic usage
 - **Scripts Documentation**: `../scripts/README.md` - Script usage guide
+
+# docs
+
+Folder ini berisi dokumentasi dan panduan untuk sistem absensi.

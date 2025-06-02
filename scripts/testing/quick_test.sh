@@ -75,7 +75,7 @@ else:
 echo ""
 echo "🔧 Testing System Files:"
 echo "------------------------"
-files_to_check=("data/haarcascade_frontalface_default.xml" "config.ini" "app.py" "add_faces_rpi.py" "take_attendance_rpi.py")
+files_to_check=("data/haarcascade_frontalface_default.xml" "config/config.ini" "src/app.py" "src/add_faces_rpi.py" "src/take_attendance_rpi.py")
 
 for file in "${files_to_check[@]}"; do
     if [ -f "$file" ]; then
@@ -106,7 +106,7 @@ echo "🎯 Ready to Test Face Recognition?"
 echo "=================================="
 echo "If all components show ✅, you can now:"
 echo "1. Register faces: python add_faces_rpi.py"
-echo "2. Take attendance: python take_attendance_rpi.py"
+echo "2. Take attendance: python src/take_attendance_rpi.py"
 echo "3. Start web interface: python app.py"
 echo ""
 echo "🌐 Web interface will be at: http://$(hostname -I | awk '{print $1}'):5000"

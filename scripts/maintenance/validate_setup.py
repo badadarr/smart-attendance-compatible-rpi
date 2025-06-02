@@ -160,7 +160,7 @@ class SetupValidator:
             "add_faces_rpi.py",
             "take_attendance_rpi.py",
             "requirements.txt",
-            "config.ini",
+            "config/config.ini",
             "README.md",
             "start.sh",
             ("scripts/installation/install_rpi.sh", "install_rpi.sh"),
@@ -307,7 +307,7 @@ class SetupValidator:
         project_root = self.script_dir.parent.parent
 
         # Check config.ini
-        config_file = project_root / "config.ini"
+        config_file = project_root / "config/config.ini"
         if config_file.exists():
             try:
                 import configparser
@@ -325,7 +325,7 @@ class SetupValidator:
             except Exception as e:
                 self.log_fail("Config File", f"invalid format: {e}")
         else:
-            self.log_fail("Config File", "config.ini not found")
+            self.log_fail("Config File", "config/config.ini not found")
 
         # Check requirements.txt
         req_file = project_root / "requirements.txt"

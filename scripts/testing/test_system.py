@@ -134,7 +134,7 @@ def check_project_files():
         "app.py",
         "add_faces_rpi.py",
         "take_attendance_rpi.py",
-        "config.ini",
+        "config/config.ini",
         "data/haarcascade_frontalface_default.xml",
     ]
 

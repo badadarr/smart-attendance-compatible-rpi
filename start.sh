@@ -24,11 +24,11 @@ if [ ! -f "data/faces_data.pkl" ] || [ ! -f "data/names.pkl" ]; then
     echo ""
     echo "Would you like to register faces now? (y/n)"
     read -r response
-    
+
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         echo "🎥 Starting face registration..."
-        python add_faces_rpi.py
-        
+        python src/add_faces_rpi.py
+
         if [ $? -eq 0 ]; then
             echo "✅ Face registration completed!"
         else
@@ -37,7 +37,7 @@ if [ ! -f "data/faces_data.pkl" ] || [ ! -f "data/names.pkl" ]; then
         fi
     else
         echo "⚠️  Cannot start attendance system without registered faces"
-        echo "💡 Run 'python add_faces_rpi.py' to register faces"
+        echo "💡 Run 'python src/add_faces_rpi.py' to register faces"
         exit 1
     fi
 fi
@@ -62,7 +62,7 @@ echo ""
 while true; do
     echo -n "Please select an option (1-11): " choice
     read -r choice
-    
+
     case $choice in
         1)
             echo "🎯 Starting attendance recognition (keyboard/mouse)..."
@@ -71,7 +71,7 @@ while true; do
             echo "   - Press 'q' to quit"
             echo "   - Ensure good lighting"
             echo ""
-            python take_attendance_rpi.py
+            python src/take_attendance_rpi.py
             break
             ;;
         2)
@@ -81,7 +81,7 @@ while true; do
             echo "   - No keyboard needed"
             echo "   - Fullscreen touchscreen interface"
             echo ""
-            python take_attendance_touchscreen.py
+            python src/take_attendance_touchscreen.py
             break
             ;;
         3)
@@ -89,7 +89,7 @@ while true; do
             echo "📱 Access at: http://$(hostname -I | awk '{print $1}'):5000"
             echo "⚠️  Press Ctrl+C to stop"
             echo ""
-            python app.py
+            python src/app.py
             break
             ;;
         4)
@@ -98,12 +98,12 @@ while true; do
             echo "📝 Perfect for touchscreen displays"
             echo "⚠️  Press Ctrl+C to stop"
             echo ""
-            python app_touchscreen.py
+            python src/app_touchscreen.py
             break
             ;;
         5)
             echo "👤 Starting face registration..."
-            python add_faces_rpi.py
+            python src/add_faces_rpi.py
             ;;
         6)
             echo "🔍 Running system check..."
@@ -117,7 +117,7 @@ while true; do
             ;;
         8)
             echo "💾 Opening backup & restore menu..."
-            scripts/maintenance/backup_restore.sh
+            bash scripts/maintenance/backup_restore.sh
             echo ""
             ;;
         9)
@@ -127,7 +127,7 @@ while true; do
             ;;
         10)
             echo "🔧 Running troubleshoot script..."
-            scripts/troubleshooting/troubleshoot.sh
+            bash scripts/troubleshooting/troubleshoot.sh
             echo ""
             ;;
         11)

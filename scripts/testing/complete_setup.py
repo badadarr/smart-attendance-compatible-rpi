@@ -144,7 +144,10 @@ else:
                 print(f"✅ Directory exists: {directory}")
 
         # Check for required files
-        required_files = ["data/haarcascade_frontalface_default.xml", "config.ini"]
+        required_files = [
+            "data/haarcascade_frontalface_default.xml",
+            "config/config.ini",
+        ]
 
         all_files_exist = True
         for file_path in required_files:
