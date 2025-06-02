@@ -66,10 +66,15 @@ class TouchscreenAttendanceSystem:
                 self.tts_engine.setProperty("volume", 0.8)  # Volume
             except:
                 self.tts_engine = None
-                print("⚠️  Could not initialize text-to-speech")
+                print("⚠️  Could not initialize text-to-speech")  # CSV columns
+        self.csv_columns = ["NAME", "TIME", "DATE", "STATUS", "WORK_HOURS"]
 
-        # CSV columns
-        self.csv_columns = ["NAME", "TIME", "DATE", "STATUS"]
+        # Clock in/out settings
+        self.clock_in_time = "09:00"  # Default clock in time
+        self.clock_out_time = "17:00"  # Default clock out time
+        self.lunch_break_start = "12:00"
+        self.lunch_break_end = "13:00"
+        self.max_work_hours = 8.0  # Maximum work hours per day
 
         # Recognition settings
         self.confidence_threshold = 0.6
@@ -136,9 +141,7 @@ class TouchscreenAttendanceSystem:
             self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.video.set(cv2.CAP_PROP_FPS, 15)
-            self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-            # Warm up camera
+            self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Warm up camera
             for _ in range(10):
                 ret, frame = self.video.read()
                 if not ret:
@@ -160,17 +163,113 @@ class TouchscreenAttendanceSystem:
         try:
             with open(attendance_file, "r") as f:
                 reader = csv.DictReader(f)
-                statuses = [row["STATUS"] for row in reader if row["NAME"] == name]
-                return statuses[-1] if statuses else None
+                records = [row for row in reader if row["NAME"] == name]
+                return records[-1]["STATUS"] if records else None
         except:
             return None
 
+    def get_all_records_today(self, name, date):
+        """Get all attendance records for a person today"""
+        attendance_file = self.attendance_dir / f"Attendance_{date}.csv"
+
+        if not attendance_file.exists():
+            return []
+
+        try:
+            with open(attendance_file, "r") as f:
+                reader = csv.DictReader(f)
+                return [row for row in reader if row["NAME"] == name]
+        except:
+            return []
+
+    def determine_attendance_status(self, name, current_time, date):
+        """Determine if this should be Clock In or Clock Out"""
+        records = self.get_all_records_today(name, date)
+
+        if not records:
+            return "Clock In"
+
+        # Get the last status
+        last_status = records[-1]["STATUS"]
+
+        # If last status was Clock In, this should be Clock Out
+        if last_status == "Clock In":
+            return "Clock Out"
+        # If last status was Clock Out, this should be Clock In
+        elif last_status == "Clock Out":
+            return "Clock In"
+        # For backward compatibility with old "Present" status
+        elif last_status == "Present":
+            return "Clock Out"
+
+        return "Clock In"
+
+    def calculate_work_hours(self, records):
+        """Calculate total work hours from attendance records"""
+        if len(records) < 2:
+            return 0.0
+
+        total_hours = 0.0
+        clock_in_time = None
+
+        for record in records:
+            status = record["STATUS"]
+            time_str = record["TIME"]
+
+            try:
+                record_time = datetime.strptime(time_str, "%H:%M:%S").time()
+
+                if status in ["Clock In", "Present"]:
+                    clock_in_time = record_time
+                elif status == "Clock Out" and clock_in_time:
+                    # Calculate hours between clock in and clock out
+                    clock_in_datetime = datetime.combine(
+                        datetime.today(), clock_in_time
+                    )
+                    clock_out_datetime = datetime.combine(datetime.today(), record_time)
+
+                    hours_worked = (
+                        clock_out_datetime - clock_in_datetime
+                    ).total_seconds() / 3600
+                    total_hours += hours_worked
+                    clock_in_time = None
+
+            except ValueError:
+                continue
+
+        return round(total_hours, 2)
+
+    def format_work_hours(self, hours):
+        """Format work hours as HH:MM"""
+        if hours <= 0:
+            return "00:00"
+
+        hours_int = int(hours)
+        minutes = int((hours - hours_int) * 60)
+        return f"{hours_int:02d}:{minutes:02d}"
+
     def save_attendance(self, name, timestamp, date, status):
-        """Save attendance record"""
+        """Save attendance record with work hours calculation"""
         attendance_file = self.attendance_dir / f"Attendance_{date}.csv"
         file_exists = attendance_file.exists()
 
         try:
+            # Calculate work hours for the day after adding this record
+            current_records = self.get_all_records_today(name, date)
+
+            # Add current record to simulate the full day's records
+            temp_record = {
+                "NAME": name,
+                "TIME": timestamp,
+                "DATE": date,
+                "STATUS": status,
+            }
+            current_records.append(temp_record)
+
+            # Calculate total work hours
+            work_hours = self.calculate_work_hours(current_records)
+            work_hours_formatted = self.format_work_hours(work_hours)
+
             with open(attendance_file, "a", newline="") as f:
                 writer = csv.writer(f)
 
@@ -178,8 +277,8 @@ class TouchscreenAttendanceSystem:
                 if not file_exists:
                     writer.writerow(self.csv_columns)
 
-                # Write attendance record
-                writer.writerow([name, timestamp, date, status])
+                # Write attendance record with work hours
+                writer.writerow([name, timestamp, date, status, work_hours_formatted])
                 return True
 
         except Exception as e:
@@ -337,8 +436,22 @@ class TouchscreenAttendanceSystem:
         )  # Status display - smaller text for 5 inch
         status_y = 25
         if recognized_name:
+            # Get current date for record lookup
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            current_time = datetime.now().strftime("%H:%M:%S")
+
+            # Get today's records and calculate work hours
+            records = self.get_all_records_today(recognized_name, current_date)
+            work_hours = self.calculate_work_hours(records)
+            work_hours_formatted = self.format_work_hours(work_hours)
+
+            # Determine next action
+            next_status = self.determine_attendance_status(
+                recognized_name, current_time, current_date
+            )
+
             if self.auto_record_mode:
-                status_text = f"Auto Mode: {recognized_name} detected"
+                status_text = f"Auto Mode: {recognized_name} - Next: {next_status}"
                 cv2.putText(
                     frame,
                     status_text,
@@ -349,7 +462,7 @@ class TouchscreenAttendanceSystem:
                     2,
                 )
             else:
-                status_text = f"Ready to record: {recognized_name}"
+                status_text = f"Ready: {recognized_name} - Next: {next_status}"
                 cv2.putText(
                     frame,
                     status_text,
@@ -358,6 +471,33 @@ class TouchscreenAttendanceSystem:
                     0.6,
                     (0, 255, 255),
                     2,
+                )
+
+            # Show work hours
+            work_hours_text = f"Today's Hours: {work_hours_formatted}"
+            cv2.putText(
+                frame,
+                work_hours_text,
+                (30, status_y + 20),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (255, 255, 255),
+                1,
+            )
+
+            # Show last status if any records exist
+            if records:
+                last_status = records[-1]["STATUS"]
+                last_time = records[-1]["TIME"]
+                last_status_text = f"Last: {last_status} at {last_time}"
+                cv2.putText(
+                    frame,
+                    last_status_text,
+                    (400, status_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (200, 200, 200),
+                    1,
                 )
         else:
             cv2.putText(
@@ -368,14 +508,12 @@ class TouchscreenAttendanceSystem:
                 0.6,
                 (0, 0, 255),
                 2,
-            )
-
-        # Instructions - smaller for 5 inch display
+            )  # Instructions - smaller for 5 inch display
         instructions = [
-            "5-inch Touchscreen Attendance",
-            "Touch RECORD to save attendance",
+            "Clock In/Out Attendance System",
+            "Touch RECORD for Clock In/Out",
             "Touch AUTO for automatic mode",
-            "Touch EXIT to quit",
+            "System calculates work hours",
         ]
 
         for i, instruction in enumerate(instructions):
@@ -439,9 +577,7 @@ class TouchscreenAttendanceSystem:
             # Process detected faces
             for x, y, w, h in faces:
                 # Crop face area from original color frame
-                face_roi = frame[y : y + h, x : x + w]
-
-                # Recognize face
+                face_roi = frame[y : y + h, x : x + w]  # Recognize face
                 name, confidence = self.recognize_face(face_roi)
 
                 if name is not None:
@@ -451,11 +587,16 @@ class TouchscreenAttendanceSystem:
                     current_time = datetime.now().strftime("%H:%M:%S")
                     current_date = datetime.now().strftime("%Y-%m-%d")
 
+                    # Determine appropriate status (Clock In or Clock Out)
+                    attendance_status = self.determine_attendance_status(
+                        name, current_time, current_date
+                    )
+
                     self.current_recognition_data = {
                         "name": name,
                         "time": current_time,
                         "date": current_date,
-                        "status": "Present",
+                        "status": attendance_status,
                     }
 
                     # Draw green rectangle around recognized face
@@ -482,12 +623,23 @@ class TouchscreenAttendanceSystem:
                         2,
                     )
 
+                    # Show expected status
+                    cv2.putText(
+                        frame,
+                        f"Next: {attendance_status}",
+                        (x, y + h + 20),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (255, 255, 0),
+                        2,
+                    )
+
                     # Auto record if enabled and cooldown period has passed
                     if self.auto_record_mode and self.can_auto_record(name):
                         if self.save_attendance(
-                            current_time, current_date, name, "Present"
+                            name, current_time, current_date, attendance_status
                         ):
-                            message = f"Auto recorded: {name} - Present"
+                            message = f"Auto recorded: {name} - {attendance_status}"
                             self.speak(message)
                             print(f"🤖 {message}")
 
@@ -495,7 +647,7 @@ class TouchscreenAttendanceSystem:
                             cv2.putText(
                                 frame,
                                 "AUTO RECORDED!",
-                                (x, y + h + 30),
+                                (x, y + h + 40),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 0.8,
                                 (0, 255, 0),
