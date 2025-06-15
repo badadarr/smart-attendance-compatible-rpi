@@ -43,10 +43,47 @@ if [ ! -f "src/data/faces_data.pkl" ] || [ ! -f "src/data/names.pkl" ]; then
 fi
 
 echo ""
-echo "🚀 Starting Face Recognition Attendance System..."
+echo "🚀 Starting Smart Attendance System..."
 echo ""
 echo "📋 Available options:"
-echo "1. Start Attendance Recognition (Keyboard/Mouse)"
+echo "1. Start Touchscreen Attendance (Main System)"
+echo "2. Start Web Dashboard"
+echo "3. Register New Faces"
+echo "4. Exit"
+echo ""
+
+while true; do
+    echo -n "Select option (1-4): "
+    read -r choice
+
+    case $choice in
+        1)
+            echo "🎯 Starting touchscreen attendance system..."
+            python src/take_attendance_touchscreen.py
+            break
+            ;;
+        2)
+            echo "🌐 Starting web dashboard..."
+            echo "📱 Access at: http://127.0.0.1:5000"
+            python src/app.py
+            break
+            ;;
+        3)
+            echo "👤 Starting face registration..."
+            python src/add_faces_rpi.py
+            ;;
+        4)
+            echo "👋 Goodbye!"
+            exit 0
+            ;;
+        *)
+            echo "❌ Invalid option. Please select 1-4."
+            ;;
+    esac
+done
+
+deactivate
+echo "✅ Session completed!"
 echo "2. Start Touchscreen Attendance (No Keyboard Needed)"
 echo "3. Start Web Dashboard Only"
 echo "4. Start Touchscreen Web Interface"
