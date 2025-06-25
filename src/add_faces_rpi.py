@@ -28,25 +28,24 @@ except ImportError as e:
 
 class FaceRegistration:
     def __init__(self):
-        # Define data directory - point to project root data folder
         self.DATA_DIR = Path(__file__).parent.parent / "data"
         self.DATA_DIR.mkdir(exist_ok=True)
 
-        # Initialize camera with lower resolution for RPi performance
         self.video = None
         self.face_cascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         )
 
-        # Configuration
         self.SAMPLES_NEEDED = 20
         self.CAPTURE_DURATION = 60  # seconds
-        self.IMAGE_SIZE = (50, 50)
+        self.IMAGE_SIZE = (50, 50)  # Target image size for training
+        self.EXPECTED_FEATURES = (
+            self.IMAGE_SIZE[0] * self.IMAGE_SIZE[1] * 3
+        )  # Assuming color images (50x50x3)
 
     def initialize_camera(self):
         """Initialize camera with optimal settings for Raspberry Pi"""
         try:
-            # Try different camera indices (0, 1, 2)
             for camera_idx in [0, 1, 2]:
                 self.video = cv2.VideoCapture(camera_idx)
                 if self.video.isOpened():
@@ -55,14 +54,12 @@ class FaceRegistration:
             else:
                 raise Exception("No camera found")
 
-            # Set camera properties for better performance on RPi
             self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            self.video.set(cv2.CAP_PROP_FPS, 15)  # Lower FPS for RPi
+            self.video.set(cv2.CAP_PROP_FPS, 15)
             self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-            # Warm up camera
-            for _ in range(10):
+            for _ in range(10):  # Warm up camera
                 ret, frame = self.video.read()
                 if not ret:
                     raise Exception("Camera not responding")
@@ -100,27 +97,20 @@ class FaceRegistration:
             elapsed_time = current_time - start_time
             remaining_time = max(self.CAPTURE_DURATION - int(elapsed_time), 0)
 
-            # Convert to grayscale for face detection
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = self.face_cascade.detectMultiScale(
                 gray, scaleFactor=1.3, minNeighbors=5, minSize=(50, 50)
             )
 
-            # Process detected faces
             for x, y, w, h in faces:
-                # Extract and resize face
                 face_roi = frame[y : y + h, x : x + w]
                 resized_face = cv2.resize(face_roi, self.IMAGE_SIZE)
 
-                # Capture every 3rd frame to get variety
                 if len(faces_data) < self.SAMPLES_NEEDED and frame_count % 3 == 0:
                     faces_data.append(resized_face)
                     print(f"✅ Captured sample {len(faces_data)}/{self.SAMPLES_NEEDED}")
 
-                # Draw rectangle around face
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-                # Add label above face
                 label = f"{name} - Sample {len(faces_data)}/{self.SAMPLES_NEEDED}"
                 cv2.putText(
                     frame,
@@ -132,7 +122,6 @@ class FaceRegistration:
                     2,
                 )
 
-            # Add timer and instructions
             cv2.putText(
                 frame,
                 f"Time: {remaining_time}s",
@@ -159,13 +148,12 @@ class FaceRegistration:
                 0.5,
                 (255, 255, 255),
                 1,
-            )  # Show frame
+            )
             cv2.imshow("Face Registration", frame)
 
             frame_count += 1
             key = cv2.waitKey(1) & 0xFF
 
-            # Exit conditions
             if (
                 key == ord("q")
                 or elapsed_time >= self.CAPTURE_DURATION
@@ -176,25 +164,21 @@ class FaceRegistration:
         return faces_data
 
     def check_existing_data(self, name):
-        """Check if name already exists in database"""
+        """Check if name already exists in database and return unique names"""
         names_file = self.DATA_DIR / "names.pkl"
 
-        if names_file.exists():
-            try:
-                with open(names_file, "rb") as f:
-                    existing_names = pickle.load(f)
+        if not names_file.exists():
+            return False, []
 
-                # Get unique names from the existing data
-                unique_names = list(set(existing_names))
+        try:
+            with open(names_file, "rb") as f:
+                existing_names = pickle.load(f)
+            unique_names = list(set(existing_names))
 
-                if name.lower() in [n.lower() for n in unique_names]:
-                    return True, unique_names
-                else:
-                    return False, unique_names
-            except:
-                return False, []
-
-        return False, []
+            return name.lower() in [n.lower() for n in unique_names], unique_names
+        except Exception as e:
+            print(f"Error checking existing data: {e}")
+            return False, []
 
     def check_face_similarity(self, new_faces):
         """Check if captured face is similar to existing faces"""
@@ -209,32 +193,57 @@ class FaceRegistration:
             return False, None
 
         try:
-            # Load existing data
             with open(faces_file, "rb") as f:
-                existing_faces = pickle.load(f)
+                existing_faces_raw = pickle.load(f)
             with open(names_file, "rb") as f:
                 existing_names = pickle.load(f)
 
-            # Prepare new face data
+            # Ensure existing_faces_raw is a numpy array
+            if not isinstance(existing_faces_raw, np.ndarray):
+                existing_faces_raw = np.array(existing_faces_raw)
+
+            # Reshape existing faces to 2D array if they are 3D (color images)
+            if existing_faces_raw.ndim == 4:  # e.g., (N, 50, 50, 3)
+                existing_faces_flattened = existing_faces_raw.reshape(
+                    existing_faces_raw.shape[0], -1
+                )
+            elif existing_faces_raw.ndim == 2:  # e.g., (N, 7500)
+                existing_faces_flattened = existing_faces_raw
+            else:
+                print(
+                    f"⚠️ Unexpected existing_faces_raw dimensions: {existing_faces_raw.shape}"
+                )
+                return False, None
+
             new_faces_array = np.array(new_faces)
             new_faces_flattened = new_faces_array.reshape(len(new_faces), -1)
 
+            # Ensure feature count matches for comparison (e.g., both 7500 for color, or 2500 for grayscale)
+            # This is a critical point for compatibility.
+            if existing_faces_flattened.shape[1] != new_faces_flattened.shape[1]:
+                print(
+                    f"⚠️ Feature count mismatch between existing and new faces: {existing_faces_flattened.shape[1]} vs {new_faces_flattened.shape[1]}"
+                )
+                # A more robust solution might involve converting one to match the other,
+                # but for now, we'll assume consistency or return False.
+                return False, None
+
             # Check similarity with existing faces
-            for i, existing_face in enumerate(existing_faces):
-                for new_face in new_faces_flattened:
-                    # Reshape for comparison
-                    existing_face_reshaped = existing_face.reshape(1, -1)
-                    new_face_reshaped = new_face.reshape(1, -1)
+            # Use a slightly optimized loop, or consider a single similarity matrix calculation
+            for i, existing_face_flat in enumerate(existing_faces_flattened):
+                # Calculate cosine similarity with all new faces
+                similarities = cosine_similarity(
+                    existing_face_flat.reshape(1, -1), new_faces_flattened
+                )
 
-                    # Calculate cosine similarity
-                    similarity = cosine_similarity(
-                        existing_face_reshaped, new_face_reshaped
-                    )[0][0]
-
-                    # If similarity is too high (>0.85), consider it a duplicate
-                    if similarity > 0.85:
-                        similar_name = existing_names[i]
-                        return True, similar_name
+                # If any new face is highly similar to this existing face
+                if np.any(similarities > 0.85):
+                    similar_name = existing_names[
+                        i
+                    ]  # This might not be the exact name if existing_names is flat and faces is flat
+                    # A more accurate way to get the name would be to map back to unique names
+                    # For simplicity, we assume existing_names maps 1-to-1 with existing_faces_flattened here.
+                    return True, similar_name
 
             return False, None
 
@@ -249,12 +258,10 @@ class FaceRegistration:
             print("💡 Try again with better lighting conditions")
             return False
 
-        # Check for existing name
-        name_exists, existing_names = self.check_existing_data(name)
+        name_exists, existing_unique_names = self.check_existing_data(name)
         if name_exists:
             print(f"❌ Name '{name}' already exists in database!")
-            print(f"📋 Existing names: {', '.join(existing_names)}")
-
+            print(f"📋 Existing names: {', '.join(existing_unique_names)}")
             response = (
                 input(f"Do you want to update existing data for '{name}'? (y/n): ")
                 .strip()
@@ -266,13 +273,11 @@ class FaceRegistration:
             else:
                 print(f"⚠️  Updating existing data for '{name}'...")
 
-        # Check for face similarity
         print("🔍 Checking for similar faces in database...")
         face_exists, similar_name = self.check_face_similarity(faces_data)
         if face_exists:
             print(f"❌ Similar face detected! This face looks like '{similar_name}'")
             print(f"💡 Each person should register only once")
-
             response = (
                 input(
                     f"Are you sure this is a different person from '{similar_name}'? (y/n): "
@@ -284,65 +289,65 @@ class FaceRegistration:
                 print("❌ Registration cancelled to prevent duplicates")
                 return False
 
-        # Prepare data
-        faces_data = faces_data[: self.SAMPLES_NEEDED]  # Take only needed samples
-        faces_array = np.array(faces_data)
+        faces_data_to_save = faces_data[: self.SAMPLES_NEEDED]
+        faces_array = np.array(faces_data_to_save)
         faces_flattened = faces_array.reshape(self.SAMPLES_NEEDED, -1)
 
-        # File paths
         names_file = self.DATA_DIR / "names.pkl"
         faces_file = self.DATA_DIR / "faces_data.pkl"
 
         try:
-            # If updating existing name, remove old data first
-            if name_exists:
+            # Load existing data (if any) or initialize empty lists/arrays
+            existing_names_list = []
+            existing_faces_array = np.empty((0, self.EXPECTED_FEATURES))
+
+            if names_file.exists():
                 with open(names_file, "rb") as f:
                     existing_names_list = pickle.load(f)
+            if faces_file.exists():
                 with open(faces_file, "rb") as f:
-                    existing_faces = pickle.load(f)
+                    existing_faces_raw = pickle.load(f)
+                    if not isinstance(
+                        existing_faces_raw, np.ndarray
+                    ):  # Convert if not already numpy array
+                        existing_faces_raw = np.array(existing_faces_raw)
+                    if existing_faces_raw.ndim == 4:  # e.g. (N, 50, 50, 3)
+                        existing_faces_array = existing_faces_raw.reshape(
+                            existing_faces_raw.shape[0], -1
+                        )
+                    elif (
+                        existing_faces_raw.ndim == 2
+                        and existing_faces_raw.shape[1] == self.EXPECTED_FEATURES
+                    ):
+                        existing_faces_array = existing_faces_raw
+                    else:
+                        print(
+                            f"⚠️ Warning: Existing faces data has unexpected shape or feature count: {existing_faces_raw.shape}. Skipping old data."
+                        )
+                        existing_faces_array = np.empty(
+                            (0, self.EXPECTED_FEATURES)
+                        )  # Reset if incompatible
 
-                # Remove old data for this name
+            # If updating, remove old data for this name
+            if name_exists:
                 indices_to_keep = [
                     i
                     for i, n in enumerate(existing_names_list)
                     if n.lower() != name.lower()
                 ]
-
-                if indices_to_keep:
-                    filtered_names = [existing_names_list[i] for i in indices_to_keep]
-                    filtered_faces = existing_faces[indices_to_keep]
-                else:
-                    filtered_names = []
-                    filtered_faces = np.empty((0, faces_flattened.shape[1]))
-
-                # Add new data
-                names = filtered_names + [name] * self.SAMPLES_NEEDED
-                faces_combined = (
-                    np.vstack((filtered_faces, faces_flattened))
-                    if len(filtered_faces) > 0
-                    else faces_flattened
-                )
+                filtered_names = [existing_names_list[i] for i in indices_to_keep]
+                filtered_faces = existing_faces_array[indices_to_keep]
             else:
-                # Load existing names or create new list
-                if names_file.exists():
-                    with open(names_file, "rb") as f:
-                        names = pickle.load(f)
-                    names.extend([name] * self.SAMPLES_NEEDED)
-                else:
-                    names = [name] * self.SAMPLES_NEEDED
+                filtered_names = existing_names_list
+                filtered_faces = existing_faces_array
 
-                # Load existing faces or create new array
-                if faces_file.exists():
-                    with open(faces_file, "rb") as f:
-                        existing_faces = pickle.load(f)
-                    faces_combined = np.vstack((existing_faces, faces_flattened))
-                else:
-                    faces_combined = faces_flattened
+            # Add new data
+            names_combined = filtered_names + [name] * self.SAMPLES_NEEDED
+            faces_combined = np.vstack((filtered_faces, faces_flattened))
 
             # Save updated data
             with open(names_file, "wb") as f:
-                pickle.dump(names, f)
-
+                pickle.dump(names_combined, f)
             with open(faces_file, "wb") as f:
                 pickle.dump(faces_combined, f)
 
@@ -375,20 +380,26 @@ class FaceRegistration:
             with open(names_file, "rb") as f:
                 names = pickle.load(f)
             with open(faces_file, "rb") as f:
-                faces = pickle.load(f)
+                faces = pickle.load(
+                    f
+                )  # Just to get total count, not used for individual users
 
-            # Get unique names and their counts
             unique_names = {}
             for name in names:
                 unique_names[name] = unique_names.get(name, 0) + 1
 
             print(f"\n📋 Existing users in database:")
             print("=" * 40)
-            for i, (name, count) in enumerate(unique_names.items(), 1):
-                print(f"{i:2d}. {name} ({count} samples)")
+            if unique_names:
+                for i, (name_key, count) in enumerate(unique_names.items(), 1):
+                    print(f"{i:2d}. {name_key} ({count} samples)")
+            else:
+                print("   (No unique users found)")
 
             print(f"\n📊 Total users: {len(unique_names)}")
-            print(f"📊 Total samples: {len(faces)}")
+            print(
+                f"📊 Total samples in data file: {len(names) if names else 0}"
+            )  # Use len(names) for actual saved samples
 
             return list(unique_names.keys())
 
@@ -411,11 +422,15 @@ class FaceRegistration:
             with open(faces_file, "rb") as f:
                 faces = pickle.load(f)
 
+            if not isinstance(faces, np.ndarray):
+                faces = np.array(faces)
+
             # Find indices to keep (not matching the name to delete)
+            # Ensure case-insensitive comparison
             indices_to_keep = [
                 i
-                for i, name in enumerate(names)
-                if name.lower() != name_to_delete.lower()
+                for i, name_item in enumerate(names)
+                if name_item.lower() != name_to_delete.lower()
             ]
 
             if len(indices_to_keep) == len(names):
@@ -470,22 +485,18 @@ class FaceRegistration:
 
     def register_new_face(self):
         """Register a new face"""
-        # Get user name
         name = input("👤 Enter your name: ").strip()
         if not name:
             print("❌ Name cannot be empty")
             return
 
-        # Initialize camera
         if not self.initialize_camera():
             print("❌ Failed to initialize camera")
             return
 
         try:
-            # Capture faces
             faces_data = self.capture_faces(name)
 
-            # Save training data
             if faces_data:
                 success = self.save_training_data(name, faces_data)
                 if success:
@@ -532,50 +543,9 @@ class FaceRegistration:
         else:
             print(f"❌ User '{name_to_delete}' not found")
 
-    def run_old(self):
-        """Original registration process (kept for backward compatibility)"""
-        print("🔧 Face Registration System for Raspberry Pi")
-        print("=" * 50)
-
-        # Get user name
-        name = input("👤 Enter your name: ").strip()
-        if not name:
-            print("❌ Name cannot be empty")
-            return
-
-        # Initialize camera
-        if not self.initialize_camera():
-            print("❌ Failed to initialize camera")
-            return
-
-        try:
-            # Capture faces
-            faces_data = self.capture_faces(name)
-
-            # Save training data
-            if faces_data:
-                success = self.save_training_data(name, faces_data)
-                if success:
-                    print(f"\n🎉 Registration completed successfully!")
-                    print(f"👤 User: {name}")
-                    print(f"📸 Samples captured: {len(faces_data)}")
-                    print(f"\n💡 You can now use the attendance system!")
-                else:
-                    print(f"\n❌ Registration failed")
-            else:
-                print(f"\n❌ No face samples captured")
-
-        except KeyboardInterrupt:
-            print(f"\n⚠️  Registration cancelled by user")
-        except Exception as e:
-            print(f"\n❌ Unexpected error: {e}")
-        finally:
-            self.cleanup()
-
 
 def main():
     """Main function"""
-    # Check if running on Raspberry Pi
     try:
         with open("/proc/cpuinfo", "r") as f:
             if "Raspberry Pi" in f.read():
@@ -585,7 +555,6 @@ def main():
     except:
         print("💻 System detection unavailable")
 
-    # Run registration
     registration = FaceRegistration()
     registration.run()
 
