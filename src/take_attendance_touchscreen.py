@@ -4,8 +4,25 @@ import os
 import csv
 import time
 import sys
+import json  # Added for logging suspicious activities
 from datetime import datetime
 from pathlib import Path
+
+# Try to import quality configuration
+try:
+    sys.path.append(str(Path(__file__).parent.parent / "config"))
+    from quality_config import (
+        get_active_threshold,
+        get_active_description,
+        QUALITY_WEIGHTS,
+        SHARPNESS_VARIANCE_THRESHOLD,
+    )
+
+    QUALITY_CONFIG_AVAILABLE = True
+    print("🔧 Quality configuration loaded")
+except ImportError:
+    QUALITY_CONFIG_AVAILABLE = False
+    print("⚠️  Quality configuration not found, using defaults")
 
 # Handle NumPy import with error handling for Raspberry Pi
 try:
@@ -101,13 +118,35 @@ class TouchscreenAttendanceSystem:
         self.auto_record_cooldown = 5  # seconds for auto recording
 
         # Enhanced security and anti-fraud settings
-        self.min_face_quality = 0.75  # Minimum face quality score
+        # REMOVED: Strict quality threshold requirement
+        # NEW: More flexible quality assessment
+        self.enable_quality_check = False  # Disable strict quality checking
+        self.min_face_quality = 0.1  # Very low threshold, essentially disabled
+        self.quality_info_only = True  # Only show quality info, don't block
+
+        print("📊 Quality checking: DISABLED (flexible mode)")
+        print("📝 System will accept faces regardless of calculated quality")
+
+        # Alternative validation methods (replace strict quality)
+        self.min_face_size = (30, 30)  # Minimum face size in pixels
+        self.max_face_size = (400, 400)  # Maximum face size in pixels
+        self.min_confidence_for_auto = 0.7  # Higher confidence for auto-record
+        self.min_confidence_manual = 0.5  # Lower confidence for manual record
+
+        # Enhanced stability checking (replace quality gating)
+        self.stability_frames_required = 3  # Consecutive stable detections
+        self.max_position_variance = 200  # Pixels squared variance allowed
+        self.confidence_consistency_threshold = 0.1  # Max confidence variance
+
         self.min_consecutive_detections = (
             3  # Require multiple detections (not fully implemented in run_attendance)
         )
         self.max_daily_records = 10  # Maximum records per person per day
         self.suspicious_interval = 30  # Seconds between suspicious rapid entries
-        self.face_area_threshold = 0.02  # Minimum face area relative to frame
+        # Face area validation (simple but effective)
+        self.face_area_threshold = 0.005  # Reduced from 0.02 (more permissive)
+        self.optimal_face_area_min = 0.01  # Warn if too small
+        self.optimal_face_area_max = 0.3  # Warn if too large
 
         # Anti-fraud tracking
         self.detection_history = (
@@ -438,23 +477,20 @@ class TouchscreenAttendanceSystem:
             )
 
     def _draw_instructions(self, frame):
-        """Helper to draw instructions on the screen"""
+        """Helper to draw instructions - UPDATED for flexible mode"""
         instructions = [
-            "Clock In/Out Attendance System",
+            "Clock In/Out Attendance System (Flexible Mode)",
             "Touch RECORD for Clock In/Out",
             "Touch AUTO for automatic mode",
             "System calculates work hours",
+            f"Confidence: Auto≥{self.min_confidence_for_auto:.1f}, Manual≥{self.min_confidence_manual:.1f}",
+            "Quality checking: DISABLED for flexibility",
         ]
         for i, instruction in enumerate(instructions):
             y_pos = 55 + (i * 20)
+            color = (255, 255, 255) if i < 4 else (0, 255, 255)
             cv2.putText(
-                frame,
-                instruction,
-                (30, y_pos),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (255, 255, 255),
-                1,
+                frame, instruction, (30, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1
             )
 
     def draw_touchscreen_ui(self, frame, recognized_name=None):
@@ -502,14 +538,15 @@ class TouchscreenAttendanceSystem:
         return frame
 
     def run_attendance(self):
-        """Main attendance recognition loop for touchscreen"""
-        print("🎯 Touchscreen Face Recognition Attendance System")
+        """Main attendance recognition loop - MODIFIED for flexible validation"""
+        print("🎯 Touchscreen Face Recognition Attendance System (Flexible Mode)")
         print("=" * 60)
         print("📱 Instructions:")
         print("   - Touch RECORD button to save attendance")
         print("   - Touch AUTO button to enable automatic recording")
         print("   - Touch EXIT button to quit")
         print("   - Look directly at the camera")
+        print("   - Quality checking is DISABLED for maximum flexibility")
         print("=" * 60)
 
         cv2.namedWindow("Touchscreen Attendance System", cv2.WINDOW_NORMAL)
@@ -526,57 +563,59 @@ class TouchscreenAttendanceSystem:
                 print("❌ Error reading from camera")
                 break
 
-            frame = cv2.resize(frame, (800, 480))  # Resize for 5 inch display
-
+            frame = cv2.resize(frame, (800, 480))
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             gray = cv2.equalizeHist(gray)
             faces = self.face_cascade.detectMultiScale(
                 gray,
-                scaleFactor=1.2,
-                minNeighbors=3,
+                scaleFactor=1.1,  # More sensitive detection
+                minNeighbors=3,  # Reduced for more detections
                 minSize=(20, 20),
-                maxSize=(300, 300),
+                maxSize=(400, 400),
             )
 
             recognized_name = None
-            current_frame_faces_data = (
-                []
-            )  # To store data for faces detected in this frame
 
             for x, y, w, h in faces:
+                face_roi = frame[y : y + h, x : x + w]
+                face_rect = (x, y, w, h)
+
+                # Basic validation (replaces strict quality checking)
+                validation = self.validate_face_basic(face_roi, face_rect, frame.shape)
+
+                # REMOVED: Quality threshold blocking
+                # OLD: if quality_score < self.min_face_quality: continue
+
+                # NEW: Only check basic area threshold (very permissive)
                 frame_area = frame.shape[0] * frame.shape[1]
                 face_area = w * h
                 face_area_ratio = face_area / frame_area
 
                 if face_area_ratio < self.face_area_threshold:
-                    continue
+                    continue  # Only skip extremely small faces
 
-                face_roi = frame[y : y + h, x : x + w]
+                # Attempt face recognition regardless of calculated quality
+                recognition_result = self.recognize_face(face_roi)
+
+                if len(recognition_result) == 3:
+                    name, confidence, raw_confidence = recognition_result
+                else:
+                    name, confidence = recognition_result
+                    raw_confidence = confidence if confidence else 0.0
+
+                # Calculate quality for display only
                 quality_score = self.calculate_face_quality(face_roi, face_area_ratio)
-
-                # Check min_face_quality before attempting recognition
-                if quality_score < self.min_face_quality:
-                    cv2.rectangle(
-                        frame, (x, y), (x + w, y + h), (0, 0, 255), 2
-                    )  # Red for low quality
-                    cv2.putText(
-                        frame,
-                        "Low Quality",
-                        (x, y - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (0, 0, 255),
-                        2,
-                    )
-                    continue
-
-                name, confidence = self.recognize_face(face_roi)
 
                 if name is not None:
                     face_center = (x + w // 2, y + h // 2)
 
-                    if self.is_face_stable(name, face_center, confidence):
-                        recognized_name = name  # Set recognized_name for UI display
+                    # Use enhanced stability checking
+                    is_stable, stability_msg = self.is_face_stable_enhanced(
+                        name, face_center, confidence, face_rect
+                    )
+
+                    if is_stable:
+                        recognized_name = name
 
                         current_time_str = datetime.now().strftime("%H:%M:%S")
                         current_date_str = datetime.now().strftime("%Y-%m-%d")
@@ -584,95 +623,127 @@ class TouchscreenAttendanceSystem:
                             name, current_time_str, current_date_str
                         )
 
-                        # Store data for the single most stable recognized face in this frame
-                        self.current_recognition_data = {
-                            "name": name,
-                            "time": current_time_str,
-                            "date": current_date_str,
-                            "status": attendance_status,
-                            "confidence": confidence,
-                            "quality_score": quality_score,
-                        }
-
-                        # Draw enhanced rectangle and labels
-                        color = (
-                            (0, 255, 0)
-                            if quality_score >= 0.8
-                            else (
-                                (0, 255, 255) if quality_score >= 0.6 else (0, 165, 255)
-                            )
-                        )
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 3)
-
-                        cv2.putText(
-                            frame,
-                            name,
-                            (x, y - 30),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.8,
-                            color,
-                            2,
-                        )
-                        cv2.putText(
-                            frame,
-                            f"{confidence*100:.1f}%",
-                            (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            color,
-                            2,
-                        )
-                        cv2.putText(
-                            frame,
-                            f"Q:{quality_score:.2f}",
-                            (x + w - 60, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.5,
-                            color,
-                            2,
-                        )
-                        cv2.putText(
-                            frame,
-                            f"Next: {attendance_status}",
-                            (x, y + h + 20),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (255, 255, 0),
-                            2,
+                        # Use different confidence thresholds for auto vs manual
+                        min_conf = (
+                            self.min_confidence_for_auto
+                            if self.auto_record_mode
+                            else self.min_confidence_manual
                         )
 
-                        # Auto record logic
-                        if self.auto_record_mode and self.can_auto_record(name):
-                            if self.enhanced_save_attendance(
+                        if confidence >= min_conf:
+                            self.current_recognition_data = {
+                                "name": name,
+                                "time": current_time_str,
+                                "date": current_date_str,
+                                "status": attendance_status,
+                                "confidence": confidence,
+                                "quality_score": quality_score,
+                            }
+
+                            # Draw enhanced rectangle - color based on confidence and warnings
+                            if confidence >= 0.8:
+                                color = (0, 255, 0)  # Green for high confidence
+                            elif confidence >= 0.6:
+                                color = (0, 255, 255)  # Yellow for medium confidence
+                            else:
+                                color = (0, 165, 255)  # Orange for low confidence
+
+                            # Add red tint if there are warnings
+                            if validation["warnings"]:
+                                color = (0, 100, 255)  # Orange-red for warnings
+
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 3)
+
+                            # Display information
+                            cv2.putText(
+                                frame,
                                 name,
-                                current_time_str,
-                                current_date_str,
-                                attendance_status,
-                                confidence,
-                                quality_score,
-                            ):
-                                message = f"Auto recorded: {name} - {attendance_status}"
-                                self.speak(message)
-                                print(f"🤖 {message}")
+                                (x, y - 50),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.8,
+                                color,
+                                2,
+                            )
+                            cv2.putText(
+                                frame,
+                                f"Conf: {confidence*100:.1f}%",
+                                (x, y - 30),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.6,
+                                color,
+                                2,
+                            )
+                            cv2.putText(
+                                frame,
+                                f"Q: {quality_score:.2f}",
+                                (x, y - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.5,
+                                color,
+                                1,
+                            )
+                            cv2.putText(
+                                frame,
+                                f"Next: {attendance_status}",
+                                (x, y + h + 20),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.6,
+                                (255, 255, 0),
+                                2,
+                            )
+
+                            # Show validation info
+                            if validation["warnings"]:
+                                warning_text = validation["warnings"][0][
+                                    :20
+                                ]  # Truncate long warnings
                                 cv2.putText(
                                     frame,
-                                    "AUTO RECORDED!",
+                                    f"⚠️ {warning_text}",
                                     (x, y + h + 40),
                                     cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.8,
-                                    (0, 255, 0),
-                                    2,
+                                    0.4,
+                                    (0, 165, 255),
+                                    1,
                                 )
-                                # Brief pause for visual feedback
-                                cv2.imshow("Touchscreen Attendance System", frame)
-                                cv2.waitKey(500)  # Show "AUTO RECORDED!" for 0.5 second
+
+                            # Auto record logic with flexible confidence
+                            if (
+                                self.auto_record_mode
+                                and self.can_auto_record(name)
+                                and confidence >= self.min_confidence_for_auto
+                            ):
+                                if self.enhanced_save_attendance(
+                                    name,
+                                    current_time_str,
+                                    current_date_str,
+                                    attendance_status,
+                                    confidence,
+                                    quality_score,
+                                ):
+                                    message = (
+                                        f"Auto recorded: {name} - {attendance_status}"
+                                    )
+                                    self.speak(message)
+                                    print(f"🤖 {message}")
+                        else:
+                            # Confidence too low
+                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                            cv2.putText(
+                                frame,
+                                f"{name} (Low Conf: {confidence*100:.1f}%)",
+                                (x, y - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.6,
+                                (0, 0, 255),
+                                2,
+                            )
                     else:
-                        cv2.rectangle(
-                            frame, (x, y), (x + w, y + h), (0, 100, 255), 2
-                        )  # Orange for stabilizing
+                        # Not stable yet
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 100, 255), 2)
                         cv2.putText(
                             frame,
-                            f"{name} (Stabilizing...)",
+                            f"{name} ({stability_msg})",
                             (x, y - 10),
                             cv2.FONT_HERSHEY_SIMPLEX,
                             0.6,
@@ -680,9 +751,8 @@ class TouchscreenAttendanceSystem:
                             2,
                         )
                 else:
-                    cv2.rectangle(
-                        frame, (x, y), (x + w, y + h), (0, 0, 255), 2
-                    )  # Red for unknown
+                    # Unknown face
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
                     cv2.putText(
                         frame,
                         "Unknown",
@@ -693,50 +763,43 @@ class TouchscreenAttendanceSystem:
                         2,
                     )
 
-            # If no faces were recognized or stable in this frame, clear current_recognition_data
+            # Clear recognition data if no stable face
             if not recognized_name:
                 self.current_recognition_data = None
 
             frame = self.draw_touchscreen_ui(frame, recognized_name)
             cv2.imshow("Touchscreen Attendance System", frame)
 
-            # Handle button clicks
+            # Handle button clicks with flexible confidence requirements
             if self.button_clicked:
                 self.button_clicked = False
                 if self.current_recognition_data:
                     data = self.current_recognition_data
                     if self.can_process_recognition(data["name"]):
-                        if self.enhanced_save_attendance(
-                            data["name"],
-                            data["time"],
-                            data["date"],
-                            data["status"],
-                            data["confidence"],
-                            data["quality_score"],
-                        ):
-                            message = f"Attendance recorded: {data['name']} - {data['status']}"
-                            self.speak(message)
-                            print(f"✅ {message}")
-                            cv2.putText(
-                                frame,
-                                "RECORDED!",
-                                (300, 240),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                1.5,
-                                (0, 255, 0),
-                                3,
-                            )
-                            cv2.imshow("Touchscreen Attendance System", frame)
-                            cv2.waitKey(1000)
+                        # Use lower confidence threshold for manual recording
+                        if data["confidence"] >= self.min_confidence_manual:
+                            if self.enhanced_save_attendance(
+                                data["name"],
+                                data["time"],
+                                data["date"],
+                                data["status"],
+                                data["confidence"],
+                                data["quality_score"],
+                            ):
+                                message = f"Attendance recorded: {data['name']} - {data['status']}"
+                                self.speak(message)
+                                print(f"✅ {message}")
                         else:
-                            print("❌ Failed to save attendance - validation failed")
-                            self.speak("Attendance failed - please try again")
+                            print(
+                                f"❌ Confidence too low for manual record: {data['confidence']:.3f} < {self.min_confidence_manual}"
+                            )
+                            self.speak("Please position your face better and try again")
                     else:
                         print(
                             f"⏳ Please wait before recording again for {data['name']}"
                         )
                 else:
-                    print("👤 No face recognized to record attendance")
+                    print("👤 No stable face recognized to record attendance")
 
             if self.exit_clicked:
                 break
@@ -773,57 +836,44 @@ class TouchscreenAttendanceSystem:
             return False
 
     def calculate_face_quality(self, face_roi, face_area_ratio):
-        """Calculate face quality score based on multiple factors"""
+        """Calculate face quality score - NOW FOR INFORMATION ONLY"""
         try:
             if face_roi is None or face_roi.size == 0:
                 return 0.0
 
-            area_score = min(face_area_ratio / self.face_area_threshold, 1.0)
+            # Calculate quality but don't use it for blocking
+            area_score = min(face_area_ratio / 0.01, 1.0)  # More lenient base
 
-            # Convert to grayscale for sharpness, brightness, and symmetry
             if face_roi.ndim == 3 and face_roi.shape[2] == 3:
                 gray_face = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
             elif face_roi.ndim == 2:
                 gray_face = face_roi
             else:
-                return 0.0  # Unsupported format
+                return 0.5  # Return neutral score instead of 0
 
-            if (
-                gray_face.shape[0] < 2 or gray_face.shape[1] < 2
-            ):  # Ensure minimum size for Laplacian
-                return 0.0
+            if gray_face.shape[0] < 2 or gray_face.shape[1] < 2:
+                return 0.5  # Return neutral score for small faces
 
-            laplacian_var = cv2.Laplacian(gray_face, cv2.CV_64F).var()
-            sharpness_score = min(laplacian_var / 500.0, 1.0)
+            # Simplified quality calculation
+            try:
+                laplacian_var = cv2.Laplacian(gray_face, cv2.CV_64F).var()
+                sharpness_score = min(laplacian_var / 300.0, 1.0)  # More lenient
+            except:
+                sharpness_score = 0.5
 
-            mean_brightness = np.mean(gray_face)
-            brightness_score = 1.0 - abs(mean_brightness - 127) / 127
+            try:
+                mean_brightness = np.mean(gray_face)
+                brightness_score = 1.0 - abs(mean_brightness - 127) / 127
+            except:
+                brightness_score = 0.5
 
-            height, width = gray_face.shape
-            if width < 2:  # Ensure width for symmetry
-                return 0.0
-
-            left_half = gray_face[:, : width // 2]
-            right_half = cv2.flip(gray_face[:, width // 2 :], 1)
-            min_width = min(left_half.shape[1], right_half.shape[1])
-            if min_width == 0:  # Handle cases where one half is empty
-                symmetry_score = 0.0
-            else:
-                left_half = left_half[:, :min_width]
-                right_half = right_half[:, :min_width]
-                symmetry_score = 1.0 - (np.mean(np.abs(left_half - right_half)) / 255.0)
-
-            quality_score = (
-                area_score * 0.3
-                + sharpness_score * 0.4
-                + brightness_score * 0.2
-                + symmetry_score * 0.1
-            )
-            return quality_score
+            # Simple average, more forgiving
+            quality_score = (area_score + sharpness_score + brightness_score) / 3.0
+            return max(quality_score, 0.1)  # Ensure minimum score
 
         except Exception as e:
             print(f"⚠️ Error calculating face quality: {e}")
-            return 0.0
+            return 0.5  # Return neutral score on error
 
     def is_face_stable(self, name, face_center, confidence):
         """Check if face detection is stable across multiple frames"""
@@ -875,185 +925,143 @@ class TouchscreenAttendanceSystem:
             tracking["stable_count"] = 0  # Reset if not stable
             return False
 
-    def check_suspicious_activity(self, name):
-        """Detect suspicious activities that might indicate fraud"""
+    def validate_face_basic(self, face_roi, face_rect, frame_shape):
+        """Basic face validation - replaces strict quality checking"""
+        x, y, w, h = face_rect
+        frame_height, frame_width = frame_shape[:2]
+
+        validation_results = {"valid": True, "warnings": [], "info": []}
+
+        # 1. Size validation
+        if w < self.min_face_size[0] or h < self.min_face_size[1]:
+            validation_results["warnings"].append(f"Face too small ({w}x{h})")
+        elif w > self.max_face_size[0] or h > self.max_face_size[1]:
+            validation_results["warnings"].append(f"Face too large ({w}x{h})")
+        else:
+            validation_results["info"].append(f"Good size ({w}x{h})")
+
+        # 2. Position validation
+        if (
+            x < 10
+            or y < 10
+            or (x + w) > (frame_width - 10)
+            or (y + h) > (frame_height - 10)
+        ):
+            validation_results["warnings"].append("Face near edge")
+        else:
+            validation_results["info"].append("Good position")
+
+        # 3. Area validation
+        face_area = w * h
+        frame_area = frame_width * frame_height
+        area_ratio = face_area / frame_area
+
+        if area_ratio < self.optimal_face_area_min:
+            validation_results["warnings"].append(
+                f"Face small in frame ({area_ratio:.3f})"
+            )
+        elif area_ratio > self.optimal_face_area_max:
+            validation_results["warnings"].append(
+                f"Face large in frame ({area_ratio:.3f})"
+            )
+        else:
+            validation_results["info"].append(f"Good frame ratio ({area_ratio:.3f})")
+
+        # 4. Basic brightness check
+        if face_roi is not None and face_roi.size > 0:
+            try:
+                if face_roi.ndim == 3:
+                    gray_face = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
+                else:
+                    gray_face = face_roi
+
+                mean_brightness = np.mean(gray_face)
+                if mean_brightness < 50:
+                    validation_results["warnings"].append("Face too dark")
+                elif mean_brightness > 200:
+                    validation_results["warnings"].append("Face too bright")
+                else:
+                    validation_results["info"].append(
+                        f"Good brightness ({mean_brightness:.0f})"
+                    )
+            except:
+                pass
+
+        return validation_results
+
+    def is_face_stable_enhanced(self, name, face_center, confidence, face_rect):
+        """Enhanced face stability checking - replaces quality gating"""
         current_time = time.time()
-        current_date = datetime.now().strftime("%Y-%m-%d")
 
-        suspicious_flags = []
-
-        # Check 1: Too many records in a day
-        daily_key = f"{name}_{current_date}"
-        current_count = self.daily_record_count.get(daily_key, 0)
-
-        if current_count >= self.max_daily_records:
-            suspicious_flags.append(
-                f"Exceeded daily record limit ({current_count}/{self.max_daily_records})"
-            )
-
-        # Check 2: Too rapid consecutive entries
-        if name in self.last_record_time:
-            time_diff = current_time - self.last_record_time[name]
-            if time_diff < self.suspicious_interval:
-                suspicious_flags.append(
-                    f"Rapid entry detected ({time_diff:.1f}s interval)"
-                )
-
-        # Check 3: Unusual time patterns (very early/late entries)
-        current_hour = datetime.now().hour
-        if current_hour < 6 or current_hour > 22:  # Example: outside 6 AM to 10 PM
-            suspicious_flags.append(f"Unusual time entry ({current_hour:02d}:xx)")
-
-        # Check 4: Weekend entries (if configured to be suspicious)
-        current_weekday = datetime.now().weekday()
-        # if current_weekday >= 5: # Saturday = 5, Sunday = 6
-        #     suspicious_flags.append("Weekend entry detected")
-        # Removed as weekend entries might be valid for some setups. Add if needed.
-
-        return suspicious_flags
-
-    def log_suspicious_activity(self, name, flags, additional_info=None):
-        """Log suspicious activities for review"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        activity_log = {
-            "timestamp": timestamp,
-            "name": name,
-            "flags": flags,
-            "additional_info": additional_info or {},
-        }
-        self.suspicious_activities.append(
-            activity_log
-        )  # Keep in memory for current session
-
-        log_file = (
-            self.log_dir
-            / f"suspicious_activities_{datetime.now().strftime('%Y-%m')}.log"
-        )
-        log_file.parent.mkdir(exist_ok=True)  # Ensure log directory exists
-
-        try:
-            with open(log_file, "a") as f:
-                f.write(
-                    f"{timestamp} | {name} | {', '.join(flags)} | {json.dumps(additional_info)}\n"
-                )
-        except Exception as e:
-            print(f"⚠️ Failed to write to log file: {e}")
-
-        print(f"🚨 SUSPICIOUS ACTIVITY DETECTED:")
-        print(f"   Name: {name}")
-        print(f"   Flags: {', '.join(flags)}")
-        print(f"   Time: {timestamp}")
-        if additional_info:
-            print(f"   Info: {additional_info}")
-
-    def enhanced_save_attendance(
-        self, name, timestamp, date, status, confidence, quality_score
-    ):
-        """Enhanced attendance saving with fraud detection and validation"""
-
-        suspicious_flags = self.check_suspicious_activity(name)
-
-        if suspicious_flags:
-            self.log_suspicious_activity(
-                name,
-                suspicious_flags,
-                {
-                    "confidence": confidence,
-                    "quality_score": quality_score,
-                    "status": status,
-                },
-            )
-
-            # Decision point: Block entry for high-risk activities
-            # Example: Block if exceeded daily limit OR multiple suspicious flags
-            if (
-                "Exceeded daily" in " ".join(suspicious_flags)
-                or len(suspicious_flags) >= 2
-            ):
-                print(f"❌ Attendance blocked due to suspicious activity: {name}")
-                self.speak(
-                    f"Attendance blocked for {name} - suspicious activity detected"
-                )
-                return False
-
-        # Quality and Confidence validation (already checked before passing to enhanced_save_attendance, but good to double check)
-        if quality_score < self.min_face_quality:
-            print(
-                f"❌ Face quality too low for saving: {quality_score:.2f} < {self.min_face_quality}"
-            )
-            return False
-
-        if confidence < self.confidence_threshold:
-            print(
-                f"❌ Recognition confidence too low for saving: {confidence:.2f} < {self.confidence_threshold}"
-            )
-            return False
-
-        attendance_file = self.attendance_dir / f"Attendance_{date}.csv"
-        file_exists = attendance_file.exists()
-
-        try:
-            # Ensure the CSV columns are always consistent, especially for new files.
-            # If the file exists, we need to read it to get existing records.
-            # If it's a new file, the columns will be written.
-
-            # Read existing records
-            current_records = self.get_all_records_today(name, date)
-
-            # Add the record we're about to save to the list for work hour calculation
-            temp_record = {
-                "NAME": name,
-                "TIME": timestamp,
-                "DATE": date,
-                "STATUS": status,
+        if name not in self.face_tracking:
+            self.face_tracking[name] = {
+                "positions": [],
+                "confidences": [],
+                "sizes": [],
+                "first_detection": current_time,
+                "stable_count": 0,
+                "last_validation": current_time,
             }
-            current_records.append(temp_record)
 
-            work_hours = self.calculate_work_hours(current_records)
-            work_hours_formatted = self.format_work_hours(work_hours)
+        tracking = self.face_tracking[name]
 
-            with open(attendance_file, "a", newline="") as f:
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(self.csv_columns)  # Write header if file is new
+        # Add current detection
+        tracking["positions"].append(face_center)
+        tracking["confidences"].append(confidence)
+        tracking["sizes"].append((face_rect[2], face_rect[3]))  # w, h
 
-                flags_str = "|".join(suspicious_flags) if suspicious_flags else ""
-                writer.writerow(
-                    [
-                        name,
-                        timestamp,
-                        date,
-                        status,
-                        work_hours_formatted,
-                        f"{confidence:.3f}",
-                        f"{quality_score:.3f}",
-                        flags_str,
-                    ]
-                )
+        # Keep recent history
+        max_history = 10
+        if len(tracking["positions"]) > max_history:
+            tracking["positions"] = tracking["positions"][-max_history:]
+            tracking["confidences"] = tracking["confidences"][-max_history:]
+            tracking["sizes"] = tracking["sizes"][-max_history:]
 
-            # Update tracking counters
-            current_time = time.time()
-            daily_key = f"{name}_{date}"
-            self.daily_record_count[daily_key] = (
-                self.daily_record_count.get(daily_key, 0) + 1
-            )
-            self.last_record_time[name] = current_time
+        # Check if we have enough detections
+        if len(tracking["positions"]) < self.stability_frames_required:
+            return False, "Collecting samples..."
 
-            print(f"✅ Enhanced attendance saved: {name} - {status}")
-            print(f"   Confidence: {confidence:.3f}, Quality: {quality_score:.3f}")
-            if suspicious_flags:
-                print(f"   ⚠️ Flags: {', '.join(suspicious_flags)}")
+        # Calculate stability metrics
+        positions = np.array(tracking["positions"])
+        confidences = np.array(tracking["confidences"])
 
-            return True
+        # Position stability
+        pos_variance = np.var(positions, axis=0)
+        position_stable = np.all(pos_variance < self.max_position_variance)
 
-        except Exception as e:
-            print(f"❌ Error saving enhanced attendance: {e}")
-            return False
+        # Confidence stability
+        conf_variance = np.var(confidences)
+        confidence_stable = conf_variance < self.confidence_consistency_threshold
+
+        # Time requirement
+        time_elapsed = current_time - tracking["first_detection"]
+        time_sufficient = time_elapsed >= 1.0  # Reduced from 2.0 seconds
+
+        # Overall stability assessment
+        if position_stable and confidence_stable and time_sufficient:
+            tracking["stable_count"] += 1
+            if tracking["stable_count"] >= 2:  # Require only 2 stable frames
+                return True, "Stable"
+            else:
+                return False, f"Stabilizing ({tracking['stable_count']}/2)"
+        else:
+            tracking["stable_count"] = 0
+
+            # Provide specific feedback
+            if not position_stable:
+                return False, "Position unstable"
+            elif not confidence_stable:
+                return False, "Recognition unstable"
+            elif not time_sufficient:
+                return False, f"Wait {1.0-time_elapsed:.1f}s"
+            else:
+                return False, "Stabilizing..."
+
+    # ...existing code...
 
 
 def main():
-    """Main function"""
+    """Main function - UPDATED messaging"""
     try:
         with open("/proc/cpuinfo", "r") as f:
             if "Raspberry Pi" in f.read():
@@ -1086,6 +1094,14 @@ def main():
         return
 
     system = TouchscreenAttendanceSystem()
+
+    print("🎯 FLEXIBLE MODE ENABLED:")
+    print("   ✅ Quality checking disabled")
+    print("   ✅ Lower confidence thresholds")
+    print("   ✅ Enhanced stability checking")
+    print("   ✅ Basic face validation only")
+    print("   📊 Quality scores shown for information only")
+
     system.run()
 
 
