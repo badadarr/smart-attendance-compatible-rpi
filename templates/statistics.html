@@ -53,16 +53,16 @@
             <td><strong>{{ pattern.Name }}</strong></td>
             <td>
               <span class="badge bg-primary"
-                >{{ pattern['Days Present'] }}</span
+                >{{ pattern['Days Attended'] }}</span
               >
             </td>
             <td>
               <span class="badge bg-success"
-                >{{ pattern['Total Present'] }}</span
+                >{{ pattern['Total Entries'] }}</span
               >
             </td>
             <td>
-              {% set rate = pattern['Attendance Rate'] %} {% if rate >= 90 %}
+              {% set rate = pattern['Attendance Rate (%)'] %} {% if rate >= 90 %}
               <span class="badge bg-success">{{ rate }}%</span>
               {% elif rate >= 70 %}
               <span class="badge bg-warning">{{ rate }}%</span>
@@ -92,7 +92,7 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span>{{ pattern.Name }}</span>
           <span class="badge bg-success"
-            >{{ pattern['Attendance Rate'] }}%</span
+            >{{ pattern['Attendance Rate (%)'] }}%</span
           >
         </div>
         {% endfor %}
@@ -108,8 +108,8 @@
           Quick Stats
         </h6>
       </div>      <div class="card-body">
-        {% set perfect_attendance = data.attendance_patterns | selectattr('Attendance Rate', 'equalto', 100.0) | list | length %}
-        {% set good_attendance = data.attendance_patterns | selectattr('Attendance Rate', 'ge', 80.0) | list | length %}
+        {% set perfect_attendance = data.attendance_patterns | selectattr('Attendance Rate (%)', 'equalto', 100.0) | list | length %}
+        {% set good_attendance = data.attendance_patterns | selectattr('Attendance Rate (%)', 'ge', 80.0) | list | length %}
 
         <div class="mb-2">
           <i class="fas fa-star text-warning me-2"></i>
@@ -122,7 +122,7 @@
         </div>        <div class="mb-2">
           <i class="fas fa-calendar-day text-info me-2"></i>
           Average Days Present:
-          <strong>{{ "%.1f" | format((data.attendance_patterns | sum(attribute='Days Present')) / data.attendance_patterns | length) }}</strong>
+          <strong>{{ "%.1f" | format((data.attendance_patterns | sum(attribute='Days Attended')) / data.attendance_patterns | length) }}</strong>
         </div>
       </div>
     </div>

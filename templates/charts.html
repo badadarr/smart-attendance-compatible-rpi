@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+
+{% block title %}Charts & Analytics - Smart Attendance System{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-title">
+        <i class="fas fa-chart-bar me-3"></i>Analytics Dashboard
+    </h1>
+    <div class="time-filter">
+        <select id="timeRange" class="form-select d-inline-block w-auto me-2">
+            <option value="7">Last 7 Days</option>
+            <option value="14">Last 14 Days</option>
+            <option value="30" selected>Last 30 Days</option>
+            <option value="60">Last 60 Days</option>
+        </select>
+        <button id="refreshData" class="btn btn-primary">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- Real-time Metrics Row -->
+<div class="row mb-4" id="metricsRow">
+    <div class="col-md-3">
+        <div class="stats-card text-center">
+            <div class="stats-number" id="totalUsers">-</div>
+            <div>Total Users</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card text-center">
+            <div class="stats-number" id="todayEntries">-</div>
+            <div>Today's Entries</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card text-center">
+            <div class="stats-number" id="avgQuality">-</div>
+            <div>Avg Quality</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card text-center">
+            <div class="stats-number" id="avgConfidence">-</div>
+            <div>Avg Confidence</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- Daily Attendance Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-calendar-day me-2"></i>Daily Attendance Trends</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="dailyAttendanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hourly Patterns Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-clock me-2"></i>Hourly Patterns</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="hourlyPatternsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- User Attendance Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users me-2"></i>Top Active Users</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="userAttendanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quality Metrics Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-award me-2"></i>Quality Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="qualityMetricsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Summary -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-analytics me-2"></i>Analytics Summary</h5>
+            </div>
+            <div class="card-body">
+                <div id="analyticsSummary" class="row">
+                    <div class="col-md-12 text-center">
+                        <div class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin fa-2x"></i>
+                            <p class="mt-2">Loading analytics...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Chart instances
+    let dailyChart, hourlyChart, userChart, qualityChart;
+    
+    // Chart configurations
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    };
+
+    // Initialize charts
+    function initializeCharts() {
+        // Daily Attendance Chart
+        const dailyCtx = document.getElementById('dailyAttendanceChart').getContext('2d');
+        dailyChart = new Chart(dailyCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Clock In',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                }, {
+                    label: 'Clock Out',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1
+                }, {
+                    label: 'Unique Attendees',
+                    data: [],
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: chartOptions
+        });
+
+        // Hourly Patterns Chart
+        const hourlyCtx = document.getElementById('hourlyPatternsChart').getContext('2d');
+        hourlyChart = new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Clock In',
+                    data: [],
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Clock Out',
+                    data: [],
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: chartOptions
+        });
+
+        // User Attendance Chart
+        const userCtx = document.getElementById('userAttendanceChart').getContext('2d');
+        userChart = new Chart(userCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Days Attended',
+                    data: [],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 205, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
+                        'rgba(199, 199, 199, 0.8)',
+                        'rgba(83, 102, 255, 0.8)',
+                        'rgba(255, 99, 255, 0.8)',
+                        'rgba(99, 255, 132, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+
+        // Quality Metrics Chart
+        const qualityCtx = document.getElementById('qualityMetricsChart').getContext('2d');
+        qualityChart = new Chart(qualityCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Avg Quality',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    yAxisID: 'y',
+                    tension: 0.1
+                }, {
+                    label: 'Avg Confidence',
+                    data: [],
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    yAxisID: 'y',
+                    tension: 0.1
+                }, {
+                    label: 'Low Quality Count',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    yAxisID: 'y1',
+                    type: 'bar'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        max: 1.0,
+                        min: 0.0
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    }
+                }
+            }
+        });
+    }
+
+    // Load chart data
+    async function loadChartData() {
+        const days = document.getElementById('timeRange').value;
+        
+        try {
+            // Load daily attendance data
+            const dailyResponse = await fetch(`/api/charts/daily_attendance?days=${days}`);
+            const dailyData = await dailyResponse.json();
+            
+            dailyChart.data.labels = dailyData.labels;
+            dailyChart.data.datasets[0].data = dailyData.datasets.clock_in;
+            dailyChart.data.datasets[1].data = dailyData.datasets.clock_out;
+            dailyChart.data.datasets[2].data = dailyData.datasets.unique_attendees;
+            dailyChart.update();
+
+            // Load hourly patterns data
+            const hourlyResponse = await fetch(`/api/charts/hourly_patterns?days=${days}`);
+            const hourlyData = await hourlyResponse.json();
+            
+            hourlyChart.data.labels = hourlyData.labels;
+            hourlyChart.data.datasets[0].data = hourlyData.datasets.clock_in;
+            hourlyChart.data.datasets[1].data = hourlyData.datasets.clock_out;
+            hourlyChart.update();
+
+            // Load user attendance data
+            const userResponse = await fetch(`/api/charts/user_attendance?days=${days}&limit=10`);
+            const userData = await userResponse.json();
+            
+            userChart.data.labels = userData.labels;
+            userChart.data.datasets[0].data = userData.datasets.days_attended;
+            userChart.update();
+
+            // Load quality metrics data
+            const qualityResponse = await fetch(`/api/charts/quality_metrics?days=${days}`);
+            const qualityData = await qualityResponse.json();
+            
+            qualityChart.data.labels = qualityData.labels;
+            qualityChart.data.datasets[0].data = qualityData.datasets.avg_quality;
+            qualityChart.data.datasets[1].data = qualityData.datasets.avg_confidence;
+            qualityChart.data.datasets[2].data = qualityData.datasets.low_quality_count;
+            qualityChart.update();
+
+        } catch (error) {
+            console.error('Error loading chart data:', error);
+            alert('Error loading chart data. Please try again.');
+        }
+    }
+
+    // Load real-time metrics
+    async function loadMetrics() {
+        try {
+            const response = await fetch('/api/realtime/current_status');
+            const data = await response.json();
+            
+            document.getElementById('totalUsers').textContent = data.system_totals.total_registered_users;
+            document.getElementById('todayEntries').textContent = data.today.total_entries;
+            
+            // Get analytics summary for quality metrics
+            const analyticsResponse = await fetch(`/api/analytics/summary?days=${document.getElementById('timeRange').value}`);
+            const analyticsData = await analyticsResponse.json();
+            
+            document.getElementById('avgQuality').textContent = analyticsData.quality_analytics?.avg_quality_score?.toFixed(3) || 'N/A';
+            document.getElementById('avgConfidence').textContent = analyticsData.quality_analytics?.avg_confidence_score?.toFixed(3) || 'N/A';
+            
+            // Update analytics summary
+            updateAnalyticsSummary(analyticsData);
+            
+        } catch (error) {
+            console.error('Error loading metrics:', error);
+        }
+    }
+
+    // Update analytics summary section
+    function updateAnalyticsSummary(data) {
+        const summaryDiv = document.getElementById('analyticsSummary');
+        summaryDiv.innerHTML = `
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-primary">${data.attendance_summary?.total_entries || 0}</h4>
+                    <small class="text-muted">Total Entries</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-success">${data.attendance_summary?.unique_users || 0}</h4>
+                    <small class="text-muted">Unique Users</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-info">${data.attendance_summary?.avg_entries_per_day || 0}</h4>
+                    <small class="text-muted">Avg Entries/Day</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-warning">${data.period?.active_days || 0}/${data.period?.total_days || 0}</h4>
+                    <small class="text-muted">Active Days</small>
+                </div>
+            </div>
+        `;
+    }
+
+    // Event listeners
+    document.getElementById('timeRange').addEventListener('change', loadChartData);
+    document.getElementById('refreshData').addEventListener('click', () => {
+        loadChartData();
+        loadMetrics();
+    });
+
+    // Initialize everything when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCharts();
+        loadChartData();
+        loadMetrics();
+        
+        // Set up auto-refresh every 30 seconds
+        setInterval(loadMetrics, 30000);
+    });
+</script>
+{% endblock %}
