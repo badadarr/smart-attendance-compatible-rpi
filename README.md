@@ -4,6 +4,24 @@
 
 A complete face recognition attendance system designed specifically for Raspberry Pi 4 Model B, featuring real-time face detection, attendance tracking, and a web-based dashboard.
 
+## 📊 New Simplified CSV Format
+
+**Format Baru:**
+```csv
+NAME,TIME,STATUS
+Badar,08:00,Clock In
+Badar,17:00,Clock Out
+John,09:15,Clock In
+John,18:30,Clock Out
+```
+
+**Perubahan:**
+- ✅ Format lebih sederhana dan mudah dibaca
+- ✅ Menghapus kolom CONFIDENCE, QUALITY, FLAGS
+- ✅ Menghapus kolom DATE (sudah ada di nama file)
+- ✅ Menghapus kolom WORK_HOURS (dapat dihitung dari Clock In/Out)
+- ✅ Fokus pada data attendance yang penting saja
+
 ## 🚀 Features
 
 - **Real-time Face Recognition**: Uses OpenCV and scikit-learn for accurate face detection

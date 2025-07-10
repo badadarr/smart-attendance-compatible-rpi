@@ -46,38 +46,55 @@ echo ""
 echo "🚀 Starting Smart Attendance System..."
 echo ""
 echo "📋 Available options:"
-echo "1. Start Touchscreen Attendance (Main System)"
-echo "2. Start Web Dashboard"
-echo "3. Register New Faces"
-echo "4. Exit"
+echo "1. Start Simple Attendance System (Keyboard)"
+echo "2. Start Touchscreen Attendance (Touch Interface)"
+echo "3. Start Web Dashboard"
+echo "6. Register New Faces"
+echo "7. Exit"
 echo ""
 
 while true; do
-    echo -n "Select option (1-4): "
+    echo -n "Select option (1-7): "
     read -r choice
 
     case $choice in
         1)
-            echo "🎯 Starting touchscreen attendance system..."
-            python src/take_attendance_touchscreen.py
+            echo "🎯 Starting simple attendance system..."
+            echo "📝 Instructions: Press SPACE to record, ESC to quit"
+            python take_attendance_rpi.py
             break
             ;;
         2)
+            echo "📱 Starting touchscreen attendance system..."
+            python src/take_attendance_touchscreen.py
+            break
+            ;;
+        3)
             echo "🌐 Starting web dashboard..."
             echo "📱 Access at: http://127.0.0.1:5000"
             python src/app.py
             break
             ;;
-        3)
+        4)
+            echo "🧪 Testing new CSV format..."
+            python test_new_format.py
+            echo ""
+            ;;
+        5)
+            echo "🔄 Running CSV format migration..."
+            python scripts/migrate_csv_format.py
+            echo ""
+            ;;
+        6)
             echo "👤 Starting face registration..."
             python src/add_faces_rpi.py
             ;;
-        4)
+        7)
             echo "👋 Goodbye!"
             exit 0
             ;;
         *)
-            echo "❌ Invalid option. Please select 1-4."
+            echo "❌ Invalid option. Please select 1-7."
             ;;
     esac
 done

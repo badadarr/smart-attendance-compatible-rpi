@@ -1,8 +1,8 @@
-NAME,TIME,DATE,STATUS,WORK_HOURS
-derr,23:50:25,2025-06-02,Present,
-derr,23:50:30,2025-06-02,Present,
-derr,23:50:36,2025-06-02,Present,
-derr,23:50:42,2025-06-02,Present,
-derr,23:50:48,2025-06-02,Present,
-derr,23:50:57,2025-06-02,Present,
-derr,23:51:02,2025-06-02,Present,
+NAME,TIME,STATUS
+derr,23:50:25,Present
+derr,23:50:30,Present
+derr,23:50:36,Present
+derr,23:50:42,Present
+derr,23:50:48,Present
+derr,23:50:57,Present
+derr,23:51:02,Present

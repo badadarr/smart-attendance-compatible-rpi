@@ -187,6 +187,39 @@
         font-weight: bold;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
       }
+      
+      .btn-outline-success:checked + label,
+      .btn-check:checked + .btn-outline-success {
+        background: linear-gradient(45deg, #56ab2f, #a8e6cf);
+        border-color: #56ab2f;
+      }
+      
+      #customDateRange {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+      
+      .badge {
+        font-size: 0.8em;
+      }
+      
+      .progress {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      
+      .bg-danger {
+        background: linear-gradient(45deg, #dc3545, #ff6b7a) !important;
+      }
+      
+      .bg-success {
+        background: linear-gradient(45deg, #28a745, #56ab2f) !important;
+      }
+      
+      .bg-warning {
+        background: linear-gradient(45deg, #ffc107, #ffeb3b) !important;
+      }
     </style>
   </head>
   <body>
@@ -218,23 +251,13 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="/charts">
-                <i class="fas fa-chart-line me-1"></i>Analytics
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('statistics') }}">
-                <i class="fas fa-chart-pie me-1"></i>Statistics
-              </a>
-            </li>
-            <li class="nav-item">
               <a class="nav-link" href="{{ url_for('daily_attendance') }}">
                 <i class="fas fa-calendar-day me-1"></i>Daily
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('security_dashboard') }}">
-                <i class="fas fa-shield-alt me-1"></i>Security
+              <a class="nav-link" href="{{ url_for('attendance_reports') }}">
+                <i class="fas fa-chart-bar me-1"></i>Attendance Reports
               </a>
             </li>
           </ul>

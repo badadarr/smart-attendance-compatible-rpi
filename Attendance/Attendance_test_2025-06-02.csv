@@ -1,9 +1,9 @@
-NAME,TIME,DATE,STATUS,WORK_HOURS
-Alice,09:00:00,2025-06-02,Clock In,00:00
-Alice,17:00:00,2025-06-02,Clock Out,08:00
-Bob,10:30:00,2025-06-02,Clock In,00:00
-Bob,12:00:00,2025-06-02,Clock Out,01:30
-Bob,13:00:00,2025-06-02,Clock In,01:30
-Bob,15:30:00,2025-06-02,Clock Out,04:00
-Charlie,08:00:00,2025-06-02,Clock In,00:00
-Charlie,19:00:00,2025-06-02,Clock Out,11:00
+NAME,TIME,STATUS
+Alice,09:00:00,Clock In
+Alice,17:00:00,Clock Out
+Bob,10:30:00,Clock In
+Bob,12:00:00,Clock Out
+Bob,13:00:00,Clock In
+Bob,15:30:00,Clock Out
+Charlie,08:00:00,Clock In
+Charlie,19:00:00,Clock Out

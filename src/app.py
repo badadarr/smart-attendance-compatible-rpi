@@ -24,11 +24,191 @@ LOG_DIR = BASE_DIR / "logs"  # Added for consistency
 
 app = Flask(__name__, template_folder=str(TEMPLATES_DIR), static_folder=str(STATIC_DIR))
 
+
+@app.after_request
+def after_request(response):
+    """Clean up temporary files after each request"""
+    if response.status_code == 200 and "csv" in response.content_type:
+        # Schedule cleanup of temp files
+        import threading
+
+        threading.Timer(5.0, cleanup_temp_files).start()
+    return response
+
+
 # Create necessary directories
 ATTENDANCE_DIR.mkdir(exist_ok=True)
 TEMPLATES_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 LOG_DIR.mkdir(exist_ok=True)  # Ensure log directory exists
+
+
+# Helper function to cleanup temporary files
+def cleanup_temp_files():
+    """Clean up temporary CSV files"""
+    try:
+        import glob
+
+        temp_files = (
+            glob.glob("*_formatted_*.csv")
+            + glob.glob("temp_*.csv")
+            + glob.glob("*_patterns_*.csv")
+        )
+        for temp_file in temp_files:
+            try:
+                os.remove(temp_file)
+            except:
+                pass
+    except:
+        pass
+
+
+# Helper function to format CSV with proper column structure
+def format_csv_for_export(df, filename_prefix="export"):
+    """Format DataFrame for CSV export with proper Excel column structure (A1=NAME, B1=TIME, etc.)"""
+    try:
+        if df.empty:
+            return None
+
+        # Create new DataFrame with exact column order for Excel (A, B, C, D, E, F, G, H)
+        formatted_df = pd.DataFrame()
+
+        # Column A: Employee Name (A1 header)
+        if "NAME" in df.columns:
+            formatted_df["NAME"] = df["NAME"].apply(
+                lambda x: str(x).strip().title() if pd.notna(x) else ""
+            )
+        else:
+            formatted_df["NAME"] = ""
+
+        # Column B: Time (B1 header)
+        if "TIME" in df.columns:
+            formatted_df["TIME"] = df["TIME"].apply(
+                lambda x: str(x) if pd.notna(x) else ""
+            )
+        else:
+            formatted_df["TIME"] = ""
+
+        # Column C: Date (C1 header)
+        if "DATE" in df.columns:
+            formatted_df["DATE"] = df["DATE"].apply(
+                lambda x: str(x) if pd.notna(x) else ""
+            )
+        else:
+            formatted_df["DATE"] = ""
+
+        # Column D: Status (D1 header)
+        if "STATUS" in df.columns:
+            formatted_df["STATUS"] = df["STATUS"].apply(
+                lambda x: str(x).strip() if pd.notna(x) else ""
+            )
+        else:
+            formatted_df["STATUS"] = ""
+
+        # Column E: Work Hours (E1 header)
+        if "WORK_HOURS" in df.columns:
+            formatted_df["WORK_HOURS"] = df["WORK_HOURS"].apply(
+                lambda x: str(x) if pd.notna(x) and ":" in str(x) else "00:00"
+            )
+        else:
+            formatted_df["WORK_HOURS"] = "00:00"
+
+        # Column F: Confidence (F1 header)
+        if "CONFIDENCE" in df.columns:
+            formatted_df["CONFIDENCE"] = df["CONFIDENCE"].apply(
+                lambda x: (
+                    f"{float(x)*100:.1f}%"
+                    if pd.notna(x)
+                    and str(x).replace(".", "", 1).replace("-", "", 1).isdigit()
+                    else "N/A"
+                )
+            )
+        else:
+            formatted_df["CONFIDENCE"] = "N/A"
+
+        # Column G: Quality (G1 header)
+        if "QUALITY" in df.columns:
+            formatted_df["QUALITY"] = df["QUALITY"].apply(
+                lambda x: (
+                    f"{float(x):.3f}"
+                    if pd.notna(x)
+                    and str(x).replace(".", "", 1).replace("-", "", 1).isdigit()
+                    else "N/A"
+                )
+            )
+        else:
+            formatted_df["QUALITY"] = "N/A"
+
+        # Column H: Flags (H1 header)
+        if "FLAGS" in df.columns:
+            formatted_df["FLAGS"] = df["FLAGS"].apply(
+                lambda x: (
+                    str(x).replace("|", ", ") if pd.notna(x) and str(x) != "" else ""
+                )
+            )
+        else:
+            formatted_df["FLAGS"] = ""
+
+        # Sort data for better organization
+        try:
+            formatted_df = formatted_df.sort_values(["DATE", "NAME", "TIME"])
+        except:
+            pass
+
+        # Generate filename with timestamp in base directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = str(BASE_DIR / f"{filename_prefix}_{timestamp}.csv")
+
+        # Save with clean Excel formatting
+        formatted_df.to_csv(
+            filename,
+            index=False,
+            encoding="utf-8-sig",
+            lineterminator="\r\n",
+            quoting=0  # Minimal quoting for cleaner output
+        )
+
+        print(f"✅ Excel-formatted CSV created: {filename}")
+        print(
+            f"📊 Column structure: A=NAME, B=TIME, C=DATE, D=STATUS, E=WORK_HOURS, F=CONFIDENCE, G=QUALITY, H=FLAGS"
+        )
+        print(f"📈 Rows: {len(formatted_df)}")
+
+        return filename
+
+    except Exception as e:
+        print(f"❌ Error formatting CSV: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return None
+
+
+# Helper function to get training data information
+def get_training_data_info():
+    """Get information about registered faces from training data"""
+    try:
+        import pickle
+
+        data_dir = BASE_DIR / "data"
+        names_file = data_dir / "names.pkl"
+        faces_file = data_dir / "faces_data.pkl"
+
+        if not names_file.exists() or not faces_file.exists():
+            return {"unique_faces": 0, "total_samples": 0, "names": []}
+
+        with open(names_file, "rb") as f:
+            names_data = pickle.load(f)
+
+        unique_names = list(set(names_data))
+        return {
+            "unique_faces": len(unique_names),
+            "total_samples": len(names_data),
+            "names": sorted(unique_names),
+        }
+    except Exception as e:
+        print(f"Error reading training data: {e}")
+        return {"unique_faces": 0, "total_samples": 0, "names": []}
 
 
 # Helper function to read attendance CSV with robust column handling
@@ -39,12 +219,7 @@ def read_attendance_csv(file_path):
         expected_cols = [
             "NAME",
             "TIME",
-            "DATE",
             "STATUS",
-            "WORK_HOURS",
-            "CONFIDENCE",
-            "QUALITY",
-            "FLAGS",
         ]
         for col in expected_cols:
             if col not in df.columns:
@@ -59,69 +234,157 @@ def read_attendance_csv(file_path):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    """Home page with real system data"""
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Get today's data
+    today_file = ATTENDANCE_DIR / f"Attendance_{today}.csv"
+    today_data = {"total_entries": 0, "unique_attendees": 0, "last_entry": None}
+
+    if today_file.exists():
+        df = read_attendance_csv(today_file)
+        if not df.empty:
+            today_data["total_entries"] = len(df)
+            today_data["unique_attendees"] = df["NAME"].nunique()
+
+            # Get last entry
+            last_row = df.iloc[-1]
+            today_data["last_entry"] = {
+                "name": last_row["NAME"],
+                "time": last_row["TIME"],
+                "status": last_row["STATUS"],
+            }
+
+    # Get training data info
+    training_info = get_training_data_info()
+
+    return render_template(
+        "index.html", today_data=today_data, training_info=training_info
+    )
 
 
 @app.route("/daily_attendance")
 def daily_attendance():
     selected_date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+    search_employee = request.args.get("employee", "").strip()
+    filter_status = request.args.get("status", "")
+
+    # Get available dates from existing files
+    available_dates = []
+    for file in ATTENDANCE_DIR.glob("Attendance_*.csv"):
+        date_str = file.stem.replace("Attendance_", "")
+        available_dates.append(date_str)
+    available_dates.sort(reverse=True)
 
     attendance_file_path = ATTENDANCE_DIR / f"Attendance_{selected_date}.csv"
 
     data = {
         "date": selected_date,
+        "available_dates": available_dates,
+        "search_employee": search_employee,
+        "filter_status": filter_status,
         "has_data": False,
         "total_entries": 0,
-        "unique_attendees": 0,  # Changed from present_count to unique_attendees for daily view
         "attendance_data": [],
     }
 
     if os.path.exists(attendance_file_path):
         df = read_attendance_csv(attendance_file_path)
         if not df.empty:
+            # Apply filters
+            filtered_df = df.copy()
+
+            # Filter by employee name
+            if search_employee:
+                filtered_df = filtered_df[
+                    filtered_df["NAME"].str.contains(
+                        search_employee, case=False, na=False
+                    )
+                ]
+
+            # Filter by status
+            if filter_status:
+                filtered_df = filtered_df[filtered_df["STATUS"] == filter_status]
+
             data["has_data"] = True
-            data["total_entries"] = len(df)
-            # Count unique names who have any "Clock In" or "Clock Out" entries today
-            data["unique_attendees"] = df["NAME"].nunique()
-            data["attendance_data"] = df.to_dict("records")
+            data["total_entries"] = len(df)  # Total before filtering
+            data["attendance_data"] = filtered_df.to_dict("records")
         else:
             print(f"File {attendance_file_path} exists but is empty or unreadable.")
 
     return render_template("daily_attendance.html", data=data)
 
 
-@app.route("/statistics")
-def statistics():
-    """Enhanced Statistics page with interactive charts"""
-    attendance_files = [
+@app.route("/attendance_reports")
+def attendance_reports():
+    """Attendance Reports - Combined Analytics and Statistics"""
+    # Get filter parameters
+    period_days = request.args.get("period", "30")
+    custom_start = request.args.get("start_date", "")
+    custom_end = request.args.get("end_date", "")
+
+    # Calculate date range
+    if period_days == "custom" and custom_start and custom_end:
+        try:
+            start_date = datetime.strptime(custom_start, "%Y-%m-%d").date()
+            end_date = datetime.strptime(custom_end, "%Y-%m-%d").date()
+            period_days = "custom"
+        except ValueError:
+            # Fallback to 30 days if invalid dates
+            end_date = datetime.now().date()
+            start_date = end_date - timedelta(days=29)
+            period_days = 30
+    else:
+        try:
+            period_days = int(period_days)
+        except ValueError:
+            period_days = 30
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=period_days - 1)
+
+    # Get all attendance files
+    all_files = [
         f
         for f in os.listdir(ATTENDANCE_DIR)
         if f.startswith("Attendance_") and f.endswith(".csv")
     ]
 
-    stats_data = {
+    # Filter files by date range
+    filtered_files = []
+    for file_name in all_files:
+        try:
+            date_str = file_name.replace("Attendance_", "").replace(".csv", "")
+            file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            if start_date <= file_date <= end_date:
+                filtered_files.append(file_name)
+        except ValueError:
+            continue
+
+    reports_data = {
         "has_data": False,
-        "total_users_registered": 0,
-        "total_attendance_days": 0,
-        "average_work_hours": "00:00",
-        "attendance_patterns": [],
-        "longest_work_day": {"name": "N/A", "hours": "00:00", "date": "N/A"},
-        "most_active_user": {"name": "N/A", "records": 0},
-        "charts_enabled": True,  # Enable charts
-        "analytics_summary": {},  # Real analytics data
+        "period_days": period_days,
+        "start_date": start_date.strftime("%Y-%m-%d"),
+        "end_date": end_date.strftime("%Y-%m-%d"),
+        "custom_start": custom_start,
+        "custom_end": custom_end,
+        "total_users": 0,
+        "total_entries": 0,
+        "employee_attendance": [],
+        "charts_enabled": True,
+        "daily_stats": {},
+        "summary_stats": {},
     }
 
-    if attendance_files:
+    if filtered_files:
         try:
             all_data_frames = []
-            daily_stats = {}  # Track daily statistics
+            daily_stats = {}
 
-            for file_name in attendance_files:
+            for file_name in filtered_files:
                 df = read_attendance_csv(ATTENDANCE_DIR / file_name)
                 if not df.empty:
                     all_data_frames.append(df)
 
-                    # Extract date from filename
                     date_str = file_name.replace("Attendance_", "").replace(".csv", "")
                     daily_stats[date_str] = {
                         "total_entries": len(df),
@@ -132,128 +395,85 @@ def statistics():
 
             if all_data_frames:
                 combined_df = pd.concat(all_data_frames, ignore_index=True)
-                stats_data["has_data"] = True
-                stats_data["total_attendance_days"] = combined_df["DATE"].nunique()
-                stats_data["total_users_registered"] = combined_df["NAME"].nunique()
+                reports_data["has_data"] = True
+                reports_data["total_users"] = combined_df["NAME"].nunique()
+                reports_data["total_entries"] = len(combined_df)
 
-                # Enhanced work hours calculation
-                valid_work_hours = combined_df[
-                    combined_df["WORK_HOURS"].str.contains(":", na=False)
-                    & (combined_df["WORK_HOURS"] != "00:00")
-                ]
-
-                total_hours_decimal = 0.0
-                num_work_hour_entries = 0
-
-                for wh_str in valid_work_hours["WORK_HOURS"].unique():
-                    try:
-                        h, m = map(int, wh_str.split(":"))
-                        total_hours_decimal += h + m / 60.0
-                        num_work_hour_entries += 1
-                    except ValueError:
-                        continue
-
-                if num_work_hour_entries > 0:
-                    avg_hours_decimal = total_hours_decimal / num_work_hour_entries
-                    avg_hours_int = int(avg_hours_decimal)
-                    avg_minutes_int = int((avg_hours_decimal - avg_hours_int) * 60)
-                    stats_data["average_work_hours"] = (
-                        f"{avg_hours_int:02d}:{avg_minutes_int:02d}"
-                    )
-
-                # Enhanced attendance patterns
-                days_attended = (
-                    combined_df.groupby("NAME")["DATE"]
-                    .nunique()
-                    .reset_index(name="Days Attended")
+                # Employee Attendance Patterns
+                employee_stats = (
+                    combined_df.groupby("NAME")
+                    .agg({"TIME": "count", "STATUS": lambda x: (x == "Clock In").sum()})
+                    .reset_index()
                 )
-                total_entries_per_person = (
-                    combined_df.groupby("NAME").size().reset_index(name="Total Entries")
-                )
-
-                # Add work hours per person
-                work_hours_per_person = (
-                    combined_df.groupby("NAME")["WORK_HOURS"]
-                    .apply(
-                        lambda x: sum(
-                            [
-                                int(wh.split(":")[0]) + int(wh.split(":")[1]) / 60.0
-                                for wh in x
-                                if ":" in str(wh) and str(wh) != "00:00"
-                            ]
-                        )
-                    )
-                    .reset_index(name="Total Work Hours")
-                )
-
-                attendance_patterns = days_attended.merge(
-                    total_entries_per_person, on="NAME", how="left"
-                ).merge(work_hours_per_person, on="NAME", how="left")
-
-                attendance_patterns.columns = [
-                    "Name",
-                    "Days Attended",
+                employee_stats.columns = [
+                    "Employee Name",
                     "Total Entries",
-                    "Total Work Hours",
+                    "Clock In Count",
                 ]
 
-                if stats_data["total_attendance_days"] > 0:
-                    attendance_patterns["Attendance Rate (%)"] = (
-                        attendance_patterns["Days Attended"]
-                        / stats_data["total_attendance_days"]
-                        * 100
-                    ).round(2)
+                # Calculate attendance rate
+                total_possible_days = len(filtered_files)
+                if total_possible_days > 0:
+                    employee_stats["Attendance Rate (%)"] = (
+                        employee_stats["Clock In Count"] / total_possible_days * 100
+                    ).round(1)
                 else:
-                    attendance_patterns["Attendance Rate (%)"] = 0.0
+                    employee_stats["Attendance Rate (%)"] = 0.0
 
-                # Calculate average hours per day
-                attendance_patterns["Avg Hours/Day"] = (
-                    attendance_patterns["Total Work Hours"]
-                    / attendance_patterns["Days Attended"].replace(0, 1)
-                ).round(2)
-
-                attendance_patterns = attendance_patterns.fillna(0)
-                attendance_patterns["Total Entries"] = attendance_patterns[
-                    "Total Entries"
-                ].astype(int)
-                attendance_patterns["Total Work Hours"] = attendance_patterns[
-                    "Total Work Hours"
-                ].round(2)
-
-                stats_data["attendance_patterns"] = attendance_patterns.sort_values(
-                    "Days Attended", ascending=False
+                reports_data["employee_attendance"] = employee_stats.sort_values(
+                    "Total Entries", ascending=False
                 ).to_dict("records")
 
-                # Enhanced longest work day calculation
-                if "WORK_HOURS" in combined_df.columns:
-                    combined_df["WORK_HOURS_DECIMAL"] = combined_df["WORK_HOURS"].apply(
-                        lambda x: (
-                            int(x.split(":")[0]) + int(x.split(":")[1]) / 60.0
-                            if isinstance(x, str) and ":" in x and x != "00:00"
-                            else 0.0
-                        )
-                    )
-                    if combined_df["WORK_HOURS_DECIMAL"].max() > 0:
-                        longest_day_row = combined_df.loc[
-                            combined_df["WORK_HOURS_DECIMAL"].idxmax()
-                        ]
-                        stats_data["longest_work_day"] = {
-                            "name": longest_day_row["NAME"],
-                            "hours": longest_day_row["WORK_HOURS"],
-                            "date": longest_day_row["DATE"],
-                        }
+                reports_data["daily_stats"] = daily_stats
 
-                # Most active user
-                if not combined_df.empty:
-                    most_active_user_name = combined_df["NAME"].value_counts().idxmax()
-                    most_active_user_count = combined_df["NAME"].value_counts().max()
-                    stats_data["most_active_user"] = {
-                        "name": most_active_user_name,
-                        "records": int(most_active_user_count),
+                # Get all registered users from training data
+                all_registered_users = set()
+                try:
+                    import pickle
+                    from pathlib import Path
+
+                    BASE_DIR = Path(__file__).parent.parent
+                    names_file = BASE_DIR / "data" / "names.pkl"
+                    if names_file.exists():
+                        with open(names_file, "rb") as f:
+                            names_data = pickle.load(f)
+                            all_registered_users = set(names_data)
+                except Exception as e:
+                    print(f"Error loading registered users: {e}")
+                    all_registered_users = set(combined_df["NAME"].unique())
+
+                # Calculate absence tracking
+                today = datetime.now().strftime("%Y-%m-%d")
+                today_file = ATTENDANCE_DIR / f"Attendance_{today}.csv"
+
+                absent_today = []
+                present_today = set()
+
+                if today_file.exists():
+                    today_df = read_attendance_csv(today_file)
+                    if not today_df.empty:
+                        present_today = set(today_df["NAME"].unique())
+
+                absent_today = list(all_registered_users - present_today)
+
+                # Absence statistics for the period
+                period_attendance = {}
+                for user in all_registered_users:
+                    user_data = combined_df[combined_df["NAME"] == user]
+                    days_present = len(user_data[user_data["STATUS"] == "Clock In"])
+                    total_days = len(filtered_files)
+                    absence_rate = (
+                        (total_days - days_present) / max(total_days, 1)
+                    ) * 100
+
+                    period_attendance[user] = {
+                        "days_present": days_present,
+                        "days_absent": total_days - days_present,
+                        "absence_rate": round(absence_rate, 1),
                     }
 
-                # Add analytics summary
-                stats_data["analytics_summary"] = {
+                # Summary statistics
+                reports_data["summary_stats"] = {
                     "total_clock_ins": len(
                         combined_df[combined_df["STATUS"] == "Clock In"]
                     ),
@@ -261,55 +481,167 @@ def statistics():
                         combined_df[combined_df["STATUS"] == "Clock Out"]
                     ),
                     "avg_entries_per_day": round(
-                        len(combined_df) / max(stats_data["total_attendance_days"], 1),
-                        2,
+                        len(combined_df) / max(len(filtered_files), 1), 1
                     ),
-                    "daily_stats": daily_stats,
-                    "quality_metrics": {
-                        "avg_quality": 0,
-                        "avg_confidence": 0,
-                        "total_flagged": 0,
-                    },
+                    "most_active_day": (
+                        max(daily_stats.items(), key=lambda x: x[1]["total_entries"])[0]
+                        if daily_stats
+                        else "N/A"
+                    ),
                 }
 
-                # Calculate quality metrics
-                quality_scores = []
-                confidence_scores = []
-                flagged_count = 0
+                # Working Hours Analysis - Simplified
+                working_hours_analysis = {}
+                daily_working_hours = {}
 
-                for _, row in combined_df.iterrows():
-                    try:
-                        if str(row["QUALITY"]).replace(".", "", 1).isdigit():
-                            quality_scores.append(float(row["QUALITY"]))
-                    except (ValueError, TypeError):
-                        pass
-                    try:
-                        if str(row["CONFIDENCE"]).replace(".", "", 1).isdigit():
-                            confidence_scores.append(float(row["CONFIDENCE"]))
-                    except (ValueError, TypeError):
-                        pass
-                    if str(row.get("FLAGS", "")).strip():
-                        flagged_count += 1
+                # Group data by date and user
+                for date_str in filtered_files:
+                    date_only = date_str.replace("Attendance_", "").replace(".csv", "")
+                    date_file = ATTENDANCE_DIR / date_str
 
-                if quality_scores:
-                    stats_data["analytics_summary"]["quality_metrics"][
-                        "avg_quality"
-                    ] = round(sum(quality_scores) / len(quality_scores), 3)
-                if confidence_scores:
-                    stats_data["analytics_summary"]["quality_metrics"][
-                        "avg_confidence"
-                    ] = round(sum(confidence_scores) / len(confidence_scores), 3)
-                stats_data["analytics_summary"]["quality_metrics"][
-                    "total_flagged"
-                ] = flagged_count
+                    if date_file.exists():
+                        try:
+                            day_df = read_attendance_csv(date_file)
+                            if not day_df.empty:
+                                # Process each user for this date
+                                for user in day_df["NAME"].unique():
+                                    user_day_data = day_df[day_df["NAME"] == user]
+
+                                    clock_ins = user_day_data[
+                                        user_day_data["STATUS"] == "Clock In"
+                                    ]
+                                    clock_outs = user_day_data[
+                                        user_day_data["STATUS"] == "Clock Out"
+                                    ]
+
+                                    if not clock_ins.empty and not clock_outs.empty:
+                                        try:
+                                            # Get first clock in and last clock out
+                                            first_in_time = clock_ins.iloc[0]["TIME"]
+                                            last_out_time = clock_outs.iloc[-1]["TIME"]
+
+                                            # Parse time (handle both HH:MM and HH:MM:SS)
+                                            if len(first_in_time.split(":")) == 3:
+                                                first_in = datetime.strptime(
+                                                    first_in_time, "%H:%M:%S"
+                                                )
+                                                last_out = datetime.strptime(
+                                                    last_out_time, "%H:%M:%S"
+                                                )
+                                            else:
+                                                first_in = datetime.strptime(
+                                                    first_in_time, "%H:%M"
+                                                )
+                                                last_out = datetime.strptime(
+                                                    last_out_time, "%H:%M"
+                                                )
+
+                                            # Calculate hours worked
+                                            hours_worked = (
+                                                last_out - first_in
+                                            ).total_seconds() / 3600
+
+                                            if (
+                                                hours_worked > 0 and hours_worked <= 16
+                                            ):  # Reasonable work day
+                                                if user not in working_hours_analysis:
+                                                    working_hours_analysis[user] = {
+                                                        "total_hours": 0,
+                                                        "working_days": 0,
+                                                        "daily_hours": [],
+                                                    }
+
+                                                working_hours_analysis[user][
+                                                    "total_hours"
+                                                ] += hours_worked
+                                                working_hours_analysis[user][
+                                                    "working_days"
+                                                ] += 1
+                                                working_hours_analysis[user][
+                                                    "daily_hours"
+                                                ].append(hours_worked)
+
+                                                if date_only not in daily_working_hours:
+                                                    daily_working_hours[date_only] = []
+                                                daily_working_hours[date_only].append(
+                                                    {
+                                                        "user": user,
+                                                        "hours": round(hours_worked, 1),
+                                                        "clock_in": first_in_time,
+                                                        "clock_out": last_out_time,
+                                                    }
+                                                )
+                                        except (ValueError, IndexError) as e:
+                                            print(
+                                                f"Error processing time for {user} on {date_only}: {e}"
+                                            )
+                                            continue
+                        except Exception as e:
+                            print(f"Error reading file {date_str}: {e}")
+                            continue
+
+                # Calculate final statistics
+                for user, data in working_hours_analysis.items():
+                    daily_hours = data["daily_hours"]
+                    working_days = data["working_days"]
+                    total_hours = data["total_hours"]
+
+                    avg_hours = total_hours / max(working_days, 1)
+                    max_hours = max(daily_hours) if daily_hours else 0
+                    min_hours = min(daily_hours) if daily_hours else 0
+
+                    working_hours_analysis[user] = {
+                        "total_hours": round(total_hours, 1),
+                        "working_days": working_days,
+                        "avg_hours_per_day": round(avg_hours, 1),
+                        "max_hours": round(max_hours, 1),
+                        "min_hours": round(min_hours, 1),
+                        "efficiency": (
+                            round((avg_hours / 8) * 100, 1) if avg_hours > 0 else 0
+                        ),
+                    }
+
+                # Calculate overall working hours stats
+                all_daily_hours = []
+                for date_hours in daily_working_hours.values():
+                    for entry in date_hours:
+                        all_daily_hours.append(entry["hours"])
+
+                working_hours_summary = {
+                    "total_working_hours": sum(all_daily_hours),
+                    "avg_daily_hours": round(
+                        sum(all_daily_hours) / max(len(all_daily_hours), 1), 1
+                    ),
+                    "max_daily_hours": (
+                        round(max(all_daily_hours), 1) if all_daily_hours else 0
+                    ),
+                    "min_daily_hours": (
+                        round(min(all_daily_hours), 1) if all_daily_hours else 0
+                    ),
+                    "standard_hours": 8,  # Standard working hours
+                    "overtime_threshold": 9,  # Hours considered overtime
+                }
+
+                # Absence tracking data
+                reports_data["absence_tracking"] = {
+                    "absent_today": sorted(absent_today),
+                    "present_today": sorted(list(present_today)),
+                    "total_registered": len(all_registered_users),
+                    "period_attendance": period_attendance,
+                    "today_date": today,
+                }
+
+                # Working hours data
+                reports_data["working_hours"] = {
+                    "analysis": working_hours_analysis,
+                    "daily_hours": daily_working_hours,
+                    "summary": working_hours_summary,
+                }
 
         except Exception as e:
-            print(f"Error generating statistics: {e}")
-            import traceback
+            print(f"Error generating attendance reports: {e}")
 
-            traceback.print_exc()
-
-    return render_template("statistics.html", data=stats_data)
+    return render_template("attendance_reports.html", data=reports_data)
 
 
 @app.route("/download_csv")
@@ -318,12 +650,34 @@ def download_csv():
     if date_str:
         file_path = ATTENDANCE_DIR / f"Attendance_{date_str}.csv"
         if os.path.exists(file_path):
-            return send_file(
-                file_path,
-                as_attachment=True,
-                download_name=f"attendance_{date_str}.csv",
-                mimetype="text/csv",  # Specify mimetype
-            )
+            try:
+                # Read and format the CSV
+                df = read_attendance_csv(file_path)
+                if not df.empty:
+                    formatted_file = format_csv_for_export(df, f"attendance_{date_str}")
+                    if formatted_file:
+                        return send_file(
+                            formatted_file,
+                            as_attachment=True,
+                            download_name=f"attendance_{date_str}_formatted.csv",
+                            mimetype="text/csv",
+                        )
+
+                # Fallback to original file if formatting fails
+                return send_file(
+                    file_path,
+                    as_attachment=True,
+                    download_name=f"attendance_{date_str}.csv",
+                    mimetype="text/csv",
+                )
+            except Exception as e:
+                print(f"Error formatting CSV for download: {e}")
+                return send_file(
+                    file_path,
+                    as_attachment=True,
+                    download_name=f"attendance_{date_str}.csv",
+                    mimetype="text/csv",
+                )
     return "File not found", 404
 
 
@@ -347,6 +701,7 @@ def download_patterns():
                 combined_df = pd.concat(all_data_frames, ignore_index=True)
                 total_attendance_days = combined_df["DATE"].nunique()
 
+                # Calculate comprehensive patterns
                 days_attended = (
                     combined_df.groupby("NAME")["DATE"]
                     .nunique()
@@ -356,11 +711,27 @@ def download_patterns():
                     combined_df.groupby("NAME").size().reset_index(name="Total Entries")
                 )
 
+                # Add work hours calculation
+                work_hours_per_person = (
+                    combined_df.groupby("NAME")["WORK_HOURS"]
+                    .apply(
+                        lambda x: sum(
+                            [
+                                int(wh.split(":")[0]) + int(wh.split(":")[1]) / 60.0
+                                for wh in x
+                                if ":" in str(wh) and str(wh) != "00:00"
+                            ]
+                        )
+                    )
+                    .reset_index(name="Total Work Hours")
+                )
+
+                # Merge all data
                 attendance_patterns = days_attended.merge(
                     total_entries_per_person, on="NAME", how="left"
-                )
-                attendance_patterns.columns = ["Name", "Days Attended", "Total Entries"]
+                ).merge(work_hours_per_person, on="NAME", how="left")
 
+                # Calculate additional metrics
                 if total_attendance_days > 0:
                     attendance_patterns["Attendance Rate (%)"] = (
                         attendance_patterns["Days Attended"]
@@ -370,18 +741,54 @@ def download_patterns():
                 else:
                     attendance_patterns["Attendance Rate (%)"] = 0.0
 
+                attendance_patterns["Average Hours/Day"] = (
+                    attendance_patterns["Total Work Hours"]
+                    / attendance_patterns["Days Attended"].replace(0, 1)
+                ).round(2)
+
+                # Clean up data
                 attendance_patterns = attendance_patterns.fillna(0)
                 attendance_patterns["Total Entries"] = attendance_patterns[
                     "Total Entries"
                 ].astype(int)
+                attendance_patterns["Total Work Hours"] = attendance_patterns[
+                    "Total Work Hours"
+                ].round(2)
 
-                temp_file = "temp_attendance_patterns.csv"
-                attendance_patterns.to_csv(temp_file, index=False)
+                # Create Excel-ready DataFrame with proper column structure
+                excel_df = pd.DataFrame()
+                excel_df["NAME"] = attendance_patterns["NAME"].apply(
+                    lambda x: str(x).strip().title()
+                )
+                excel_df["DAYS_ATTENDED"] = attendance_patterns["Days Attended"]
+                excel_df["TOTAL_ENTRIES"] = attendance_patterns["Total Entries"]
+                excel_df["TOTAL_WORK_HOURS"] = attendance_patterns[
+                    "Total Work Hours"
+                ].apply(lambda x: f"{x:.1f}h")
+                excel_df["ATTENDANCE_RATE"] = attendance_patterns[
+                    "Attendance Rate (%)"
+                ].apply(lambda x: f"{x:.1f}%")
+                excel_df["AVG_HOURS_DAY"] = attendance_patterns[
+                    "Average Hours/Day"
+                ].apply(lambda x: f"{x:.1f}h")
+
+                # Generate formatted CSV
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                temp_file = f"attendance_patterns_{timestamp}.csv"
+
+                # Save with proper Excel formatting
+                excel_df.to_csv(
+                    temp_file,
+                    index=False,
+                    encoding="utf-8-sig",
+                    lineterminator="\r\n",
+                    quoting=1,
+                )
 
                 return send_file(
                     temp_file,
                     as_attachment=True,
-                    download_name="attendance_patterns.csv",
+                    download_name=f"attendance_patterns_{timestamp}.csv",
                     mimetype="text/csv",
                 )
 
@@ -402,7 +809,8 @@ def get_attendance_status():
     status = {
         "date": today,
         "total_entries": 0,
-        "unique_attendees": 0,  # Changed from present_count
+        "present_count": 0,  # Keep present_count for compatibility
+        "unique_attendees": 0,
         "last_entry": None,
     }
 
@@ -411,6 +819,7 @@ def get_attendance_status():
         if not df.empty:
             status["total_entries"] = len(df)
             status["unique_attendees"] = df["NAME"].nunique()
+            status["present_count"] = df["NAME"].nunique()  # Same as unique attendees
 
             last_row = df.iloc[-1]
             status["last_entry"] = {
@@ -462,21 +871,8 @@ def dashboard():
                 clock_ins_today = len(df_today[df_today["STATUS"] == "Clock In"])
                 clock_outs_today = len(df_today[df_today["STATUS"] == "Clock Out"])
 
-                # Calculate average work hours for today
-                work_hours_today = []
-                for _, row in df_today.iterrows():
-                    try:
-                        if ":" in str(row["WORK_HOURS"]):
-                            h, m = map(int, str(row["WORK_HOURS"]).split(":"))
-                            work_hours_today.append(h + m / 60.0)
-                    except (ValueError, AttributeError):
-                        pass
-
-                avg_work_hours_today = (
-                    sum(work_hours_today) / len(work_hours_today)
-                    if work_hours_today
-                    else 0
-                )
+                # Work hours calculation removed - not available in new format
+                avg_work_hours_today = 0
 
                 # Top attendees based on total entries today
                 top_attendees_counts = df_today["NAME"].value_counts().head(5)
@@ -485,37 +881,13 @@ def dashboard():
                     for name, count in top_attendees_counts.items()
                 ]
 
-                # Quality metrics for today
-                quality_scores = []
-                confidence_scores = []
-                for _, row in df_today.iterrows():
-                    try:
-                        if str(row["QUALITY"]).replace(".", "", 1).isdigit():
-                            quality_scores.append(float(row["QUALITY"]))
-                    except (ValueError, TypeError):
-                        pass
-                    try:
-                        if str(row["CONFIDENCE"]).replace(".", "", 1).isdigit():
-                            confidence_scores.append(float(row["CONFIDENCE"]))
-                    except (ValueError, TypeError):
-                        pass
+                # Quality metrics removed - not available in new format
 
                 dashboard_data["today_summary"] = {
                     "total_unique_attendees": unique_people_today,
                     "total_entries": total_entries_today,
                     "clock_ins": clock_ins_today,
                     "clock_outs": clock_outs_today,
-                    "avg_work_hours": round(avg_work_hours_today, 2),
-                    "avg_quality_score": (
-                        round(sum(quality_scores) / len(quality_scores), 3)
-                        if quality_scores
-                        else 0
-                    ),
-                    "avg_confidence_score": (
-                        round(sum(confidence_scores) / len(confidence_scores), 3)
-                        if confidence_scores
-                        else 0
-                    ),
                     "attendance_rate": round(
                         (unique_people_today / max(df_today["NAME"].nunique(), 1))
                         * 100,
@@ -670,259 +1042,7 @@ def get_system_status():
     return jsonify(status)
 
 
-@app.route("/security")
-def security_dashboard():
-    """Security monitoring dashboard"""
-    return security()
-
-
-@app.route("/security_dashboard")
-def security():
-    """Security monitoring dashboard"""
-    security_data = {
-        "suspicious_activities": [],
-        "quality_metrics": {},
-        "fraud_patterns": {},
-        "system_alerts": [],
-        "daily_statistics": {},
-    }
-
-    try:
-        # Read suspicious activity logs
-        current_month = datetime.now().strftime("%Y-%m")
-        log_file = LOG_DIR / f"suspicious_activities_{current_month}.log"
-
-        if log_file.exists():
-            with open(log_file, "r") as f:
-                lines = f.readlines()
-                # Parse log lines to dictionary for easier display
-                for line in lines[-100:]:  # Show last 100 entries for dashboard
-                    try:
-                        parts = line.strip().split(" | ")
-                        if len(parts) >= 3:
-                            log_entry = {
-                                "timestamp": parts[0],
-                                "name": parts[1],
-                                "flags": parts[2],
-                            }
-                            if len(parts) > 3:  # Check for additional_info JSON
-                                try:
-                                    log_entry["additional_info"] = json.loads(parts[3])
-                                except json.JSONDecodeError:
-                                    log_entry["additional_info"] = {
-                                        "raw": parts[3]
-                                    }  # Fallback if not valid JSON
-                            security_data["suspicious_activities"].append(log_entry)
-                    except Exception as e:
-                        print(f"Error parsing log line: {line.strip()} - {e}")
-                        continue
-
-        security_data["suspicious_activities"].reverse()  # Show most recent first
-
-        # Analyze attendance files for quality metrics
-        attendance_files = list(ATTENDANCE_DIR.glob("Attendance_*.csv"))
-        total_records_processed = 0
-        quality_scores = []
-        confidence_scores = []
-        flagged_records_count = 0
-
-        for file in attendance_files:
-            df = read_attendance_csv(file)
-            if df.empty:
-                continue
-
-            total_records_processed += len(df)
-
-            # Use .loc to avoid SettingWithCopyWarning
-            if "CONFIDENCE" in df.columns:
-                confidence_scores.extend(
-                    [
-                        float(x)
-                        for x in df["CONFIDENCE"].dropna()
-                        if str(x).replace(".", "", 1).isdigit()
-                    ]
-                )
-            if "QUALITY" in df.columns:
-                quality_scores.extend(
-                    [
-                        float(x)
-                        for x in df["QUALITY"].dropna()
-                        if str(x).replace(".", "", 1).isdigit()
-                    ]
-                )
-            if "FLAGS" in df.columns:
-                flagged_records_count += len(
-                    df[df["FLAGS"].astype(str).str.strip() != ""]
-                )  # Count non-empty flags
-
-        # Calculate quality metrics
-        if quality_scores:
-            security_data["quality_metrics"] = {
-                "average_quality": round(np.mean(quality_scores), 3),
-                "min_quality": round(np.min(quality_scores), 3),
-                "max_quality": round(np.max(quality_scores), 3),
-                "low_quality_count": len([q for q in quality_scores if q < 0.6]),
-            }
-
-        if confidence_scores:
-            security_data["quality_metrics"].update(
-                {
-                    "average_confidence": round(np.mean(confidence_scores), 3),
-                    "min_confidence": round(np.min(confidence_scores), 3),
-                    "max_confidence": round(np.max(confidence_scores), 3),
-                    "low_confidence_count": len(
-                        [c for c in confidence_scores if c < 0.7]
-                    ),
-                }
-            )
-
-        # Calculate fraud patterns
-        security_data["fraud_patterns"] = {
-            "total_records_analyzed": total_records_processed,
-            "flagged_records": flagged_records_count,
-            "fraud_percentage": round(
-                (flagged_records_count / max(total_records_processed, 1)) * 100, 2
-            ),
-            "suspicious_activities_logged": len(security_data["suspicious_activities"]),
-        }
-
-        # Generate system alerts
-        alerts = []
-        if security_data["fraud_patterns"]["fraud_percentage"] > 5:
-            alerts.append(
-                {
-                    "level": "warning",
-                    "message": f"High fraud rate detected: {security_data['fraud_patterns']['fraud_percentage']}% of records flagged.",
-                }
-            )
-        if security_data["quality_metrics"].get("low_quality_count", 0) > 10:
-            alerts.append(
-                {
-                    "level": "info",
-                    "message": f"Many low quality face detections: {security_data['quality_metrics']['low_quality_count']} instances.",
-                }
-            )
-        if security_data["quality_metrics"].get("average_confidence", 0) < 0.7:
-            alerts.append(
-                {
-                    "level": "warning",
-                    "message": f"Average recognition confidence is low: {security_data['quality_metrics']['average_confidence']:.2f}. Consider retraining.",
-                }
-            )
-        security_data["system_alerts"] = alerts
-
-        # Daily statistics for security (e.g., daily flagged records)
-        daily_flagged = {}
-        for file in attendance_files:
-            df = read_attendance_csv(file)
-            if df.empty:
-                continue
-            file_date = file.stem.replace("Attendance_", "")
-            if "FLAGS" in df.columns:
-                daily_flagged[file_date] = len(
-                    df[df["FLAGS"].astype(str).str.strip() != ""]
-                )
-            else:
-                daily_flagged[file_date] = 0
-        security_data["daily_statistics"]["flagged_records_by_date"] = sorted(
-            daily_flagged.items()
-        )
-
-    except Exception as e:
-        print(f"Error generating security data: {e}")
-        import traceback
-
-        traceback.print_exc()
-
-    return render_template("security.html", data=security_data)
-
-
-@app.route("/api/security/export")
-def export_security_report():
-    """Export security analysis report"""
-    try:
-        report_data_frames = []
-        attendance_files = list(ATTENDANCE_DIR.glob("Attendance_*.csv"))
-
-        for file in attendance_files:
-            df = read_attendance_csv(file)
-            if df.empty:
-                continue
-
-            # Add security analysis columns dynamically
-            df["HAS_FLAGS"] = df["FLAGS"].apply(
-                lambda x: "Yes" if str(x).strip() else "No"
-            )
-            df["QUALITY_CATEGORY"] = df["QUALITY"].apply(
-                lambda x: (
-                    "High"
-                    if str(x).replace(".", "", 1).isdigit() and float(x) >= 0.8
-                    else (
-                        "Medium"
-                        if str(x).replace(".", "", 1).isdigit() and float(x) >= 0.6
-                        else (
-                            "Low"
-                            if str(x).replace(".", "", 1).isdigit() and float(x) > 0
-                            else "Unknown"
-                        )
-                    )
-                )
-            )
-            df["CONFIDENCE_CATEGORY"] = df["CONFIDENCE"].apply(
-                lambda x: (
-                    "High"
-                    if str(x).replace(".", "", 1).isdigit() and float(x) >= 0.8
-                    else (
-                        "Medium"
-                        if str(x).replace(".", "", 1).isdigit() and float(x) >= 0.6
-                        else (
-                            "Low"
-                            if str(x).replace(".", "", 1).isdigit() and float(x) > 0
-                            else "Unknown"
-                        )
-                    )
-                )
-            )
-            report_data_frames.append(df)
-
-        if report_data_frames:
-            combined_df = pd.concat(report_data_frames, ignore_index=True)
-
-            # Select and reorder columns for clarity in the report
-            final_columns = [
-                "NAME",
-                "DATE",
-                "TIME",
-                "STATUS",
-                "WORK_HOURS",
-                "CONFIDENCE",
-                "CONFIDENCE_CATEGORY",
-                "QUALITY",
-                "QUALITY_CATEGORY",
-                "FLAGS",
-                "HAS_FLAGS",
-            ]
-            # Keep only columns that exist in the combined_df
-            final_columns = [col for col in final_columns if col in combined_df.columns]
-
-            temp_file = "temp_security_report.csv"
-            combined_df[final_columns].to_csv(temp_file, index=False)
-
-            return send_file(
-                temp_file,
-                as_attachment=True,
-                download_name=f"security_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mimetype="text/csv",
-            )
-        else:
-            return "No data available", 404
-
-    except Exception as e:
-        print(f"Error generating security report: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return f"Error generating report: {e}", 500
+# Security features removed
 
 
 # ========================= NEW API ENDPOINTS FOR CHARTS AND STATISTICS =========================
@@ -1250,6 +1370,9 @@ def api_realtime_status():
                 recent_df = df.tail(10)
                 recent_activity = recent_df.to_dict("records")
 
+        # Get training data information
+        training_data_info = get_training_data_info()
+
         status_data = {
             "timestamp": datetime.now().isoformat(),
             "current_date": today,
@@ -1261,6 +1384,7 @@ def api_realtime_status():
                 "active_days": len(all_files),
             },
             "recent_activity": recent_activity,
+            "training_data": training_data_info,
             "system_health": {
                 "attendance_files_accessible": len(all_files),
                 "log_directory_accessible": LOG_DIR.exists(),
@@ -1302,26 +1426,28 @@ def api_analytics_summary():
             current_date += timedelta(days=1)
 
         if not all_data:
-            return jsonify({
-                "period": {
-                    "start_date": start_date.strftime("%Y-%m-%d"),
-                    "end_date": end_date.strftime("%Y-%m-%d"),
-                    "total_days": days_back,
-                    "active_days": 0,
-                },
-                "attendance_summary": {
-                    "total_entries": 0,
-                    "unique_users": 0,
-                    "total_clock_ins": 0,
-                    "total_clock_outs": 0,
-                    "avg_entries_per_day": 0,
-                },
-                "quality_analytics": {
-                    "avg_quality_score": 0,
-                    "avg_confidence_score": 0,
-                },
-                "message": "No data found for the specified period"
-            })
+            return jsonify(
+                {
+                    "period": {
+                        "start_date": start_date.strftime("%Y-%m-%d"),
+                        "end_date": end_date.strftime("%Y-%m-%d"),
+                        "total_days": days_back,
+                        "active_days": 0,
+                    },
+                    "attendance_summary": {
+                        "total_entries": 0,
+                        "unique_users": 0,
+                        "total_clock_ins": 0,
+                        "total_clock_outs": 0,
+                        "avg_entries_per_day": 0,
+                    },
+                    "quality_analytics": {
+                        "avg_quality_score": 0,
+                        "avg_confidence_score": 0,
+                    },
+                    "message": "No data found for the specified period",
+                }
+            )
 
         combined_df = pd.concat(all_data, ignore_index=True)
 
@@ -1456,10 +1582,119 @@ def api_analytics_summary():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/charts")
-def charts():
-    """Interactive Charts and Analytics Page"""
-    return render_template("charts.html")
+@app.route("/download_comprehensive")
+def download_comprehensive():
+    """Download comprehensive attendance report"""
+    date_str = request.args.get("date")
+    report_type = request.args.get("type", "daily")
+
+    try:
+        if report_type == "daily" and date_str:
+            file_path = ATTENDANCE_DIR / f"Attendance_{date_str}.csv"
+            if file_path.exists():
+                df = read_attendance_csv(file_path)
+                if not df.empty:
+                    formatted_file = format_csv_for_export(
+                        df, f"comprehensive_daily_{date_str}"
+                    )
+                    if formatted_file:
+                        return send_file(
+                            formatted_file,
+                            as_attachment=True,
+                            download_name=f"comprehensive_daily_{date_str}.csv",
+                            mimetype="text/csv",
+                        )
+
+        elif report_type == "weekly":
+            if date_str:
+                start_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            else:
+                start_date = datetime.now().date() - timedelta(days=6)
+
+            all_data = []
+            for i in range(7):
+                current_date = start_date + timedelta(days=i)
+                file_path = (
+                    ATTENDANCE_DIR
+                    / f"Attendance_{current_date.strftime('%Y-%m-%d')}.csv"
+                )
+                if file_path.exists():
+                    df = read_attendance_csv(file_path)
+                    if not df.empty:
+                        all_data.append(df)
+
+            if all_data:
+                combined_df = pd.concat(all_data, ignore_index=True)
+                formatted_file = format_csv_for_export(
+                    combined_df, f"comprehensive_weekly_{start_date}"
+                )
+                if formatted_file:
+                    return send_file(
+                        formatted_file,
+                        as_attachment=True,
+                        download_name=f"comprehensive_weekly_{start_date}.csv",
+                        mimetype="text/csv",
+                    )
+
+        elif report_type == "monthly":
+            if date_str:
+                target_date = datetime.strptime(date_str, "%Y-%m-%d")
+            else:
+                target_date = datetime.now()
+
+            year_month = target_date.strftime("%Y-%m")
+            attendance_files = [
+                f
+                for f in ATTENDANCE_DIR.glob("Attendance_*.csv")
+                if year_month in f.name
+            ]
+
+            all_data = []
+            for file_path in attendance_files:
+                df = read_attendance_csv(file_path)
+                if not df.empty:
+                    all_data.append(df)
+
+            if all_data:
+                combined_df = pd.concat(all_data, ignore_index=True)
+                formatted_file = format_csv_for_export(
+                    combined_df, f"comprehensive_monthly_{year_month}"
+                )
+                if formatted_file:
+                    return send_file(
+                        formatted_file,
+                        as_attachment=True,
+                        download_name=f"comprehensive_monthly_{year_month}.csv",
+                        mimetype="text/csv",
+                    )
+
+        elif report_type == "all":
+            attendance_files = list(ATTENDANCE_DIR.glob("Attendance_*.csv"))
+            all_data = []
+
+            for file_path in attendance_files:
+                df = read_attendance_csv(file_path)
+                if not df.empty:
+                    all_data.append(df)
+
+            if all_data:
+                combined_df = pd.concat(all_data, ignore_index=True)
+                formatted_file = format_csv_for_export(
+                    combined_df, "comprehensive_all_time"
+                )
+                if formatted_file:
+                    return send_file(
+                        formatted_file,
+                        as_attachment=True,
+                        download_name="comprehensive_all_time.csv",
+                        mimetype="text/csv",
+                    )
+
+        return "No data available", 404
+
+    except Exception as e:
+        print(f"Error generating comprehensive report: {e}")
+        return "Error generating report", 500
 
 
 if __name__ == "__main__":

@@ -1,0 +1,13 @@
+NAME,TIME,DATE,STATUS,WORK_HOURS
+derr,02:30:00,2025-06-03,Clock In,
+derr,02:30:11,2025-06-03,Clock Out,0.00
+Alice Johnson,08:00:00,2025-06-03,Clock In,
+Bob Smith,08:15:00,2025-06-03,Clock In,
+Charlie Brown,08:30:00,2025-06-03,Clock In,
+Alice Johnson,12:00:00,2025-06-03,Clock Out,8.00
+Bob Smith,12:15:00,2025-06-03,Clock Out,7.92
+Alice Johnson,13:00:00,2025-06-03,Clock In,
+Bob Smith,13:15:00,2025-06-03,Clock In,
+Alice Johnson,17:00:00,2025-06-03,Clock Out,8.00
+Bob Smith,17:10:00,2025-06-03,Clock Out,7.92
+Charlie Brown,17:05:00,2025-06-03,Clock Out,8.58

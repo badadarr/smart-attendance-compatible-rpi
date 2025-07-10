@@ -89,13 +89,8 @@ class TouchscreenAttendanceSystem:
         self.csv_columns = [
             "NAME",
             "TIME",
-            "DATE",
             "STATUS",
-            "WORK_HOURS",
-            "CONFIDENCE",
-            "QUALITY",
-            "FLAGS",
-        ]  # Updated with enhanced columns
+        ]  # Simplified CSV format
 
         # Clock in/out settings (these could be externalized to a config file)
         self.clock_in_time = "09:00"
@@ -280,49 +275,7 @@ class TouchscreenAttendanceSystem:
 
         return "Clock In"  # Default to Clock In if status is unknown or first entry
 
-    def calculate_work_hours(self, records):
-        """Calculate total work hours from attendance records"""
-        if len(records) < 2:
-            return 0.0
-
-        total_hours = 0.0
-        clock_in_time = None
-
-        for record in records:
-            status = record["STATUS"]
-            time_str = record["TIME"]
-
-            try:
-                record_time = datetime.strptime(time_str, "%H:%M:%S").time()
-
-                if status in ["Clock In", "Present"]:
-                    clock_in_time = record_time
-                elif status == "Clock Out" and clock_in_time:
-                    clock_in_datetime = datetime.combine(
-                        datetime.today(), clock_in_time
-                    )
-                    clock_out_datetime = datetime.combine(datetime.today(), record_time)
-
-                    hours_worked = (
-                        clock_out_datetime - clock_in_datetime
-                    ).total_seconds() / 3600
-                    total_hours += hours_worked
-                    clock_in_time = None  # Reset for next Clock In/Out pair
-
-            except ValueError:
-                print(f"⚠️  Invalid time format in record: {time_str}")
-                continue
-
-        return round(total_hours, 2)
-
-    def format_work_hours(self, hours):
-        """Format work hours as HH:MM"""
-        if hours <= 0:
-            return "00:00"
-
-        hours_int = int(hours)
-        minutes = int((hours - hours_int) * 60)
-        return f"{hours_int:02d}:{minutes:02d}"
+    # Work hours calculation removed - not needed in simplified format
 
     def recognize_face(self, face_roi):
         """Recognize face using KNN classifier"""
@@ -420,15 +373,13 @@ class TouchscreenAttendanceSystem:
         )
 
     def _draw_status_info(self, frame, recognized_name):
-        """Helper to draw status information including name, next status, and work hours"""
+        """Helper to draw status information - simplified"""
         status_y = 25
         if recognized_name:
             current_date = datetime.now().strftime("%Y-%m-%d")
             current_time_str = datetime.now().strftime("%H:%M:%S")
 
             records = self.get_all_records_today(recognized_name, current_date)
-            work_hours = self.calculate_work_hours(records)
-            work_hours_formatted = self.format_work_hours(work_hours)
             next_status = self.determine_attendance_status(
                 recognized_name, current_time_str, current_date
             )
@@ -445,10 +396,11 @@ class TouchscreenAttendanceSystem:
                 2,
             )
 
-            work_hours_text = f"Today's Hours: {work_hours_formatted}"
+            entries_today = len(records)
+            entries_text = f"Today's Entries: {entries_today}"
             cv2.putText(
                 frame,
-                work_hours_text,
+                entries_text,
                 (30, status_y + 20),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
@@ -713,27 +665,15 @@ class TouchscreenAttendanceSystem:
                                 1,
                             )
 
-                        # Auto record logic with flexible confidence (no stability requirement)
+                        # Auto record logic
                         if (
                             self.auto_record_mode
                             and self.can_auto_record(name)
                             and confidence >= self.min_confidence_for_auto
                         ):
-                            if self.enhanced_save_attendance(
-                                name,
-                                current_time_str,
-                                current_date_str,
-                                attendance_status,
-                                confidence,
-                                quality_score,
-                            ):
-                                stability_note = (
-                                    "(stable)" if is_stable else "(flexible)"
-                                )
-                                message = f"Auto recorded: {name} - {attendance_status} {stability_note}"
-                                self.speak(
-                                    f"Auto recorded: {name} - {attendance_status}"
-                                )
+                            if self.save_attendance(name, current_time_str, attendance_status):
+                                message = f"Auto recorded: {name} - {attendance_status}"
+                                self.speak(f"Auto recorded: {name} - {attendance_status}")
                                 print(f"🤖 {message}")
                     else:
                         # Confidence too low but still show the face
@@ -783,35 +723,11 @@ class TouchscreenAttendanceSystem:
                 if self.current_recognition_data:
                     data = self.current_recognition_data
                     if self.can_process_recognition(data["name"]):
-                        # ULTRA FLEXIBLE: Accept even very low confidence for manual recording
-                        if data["confidence"] >= 0.2:  # Ultra low threshold
-                            if self.enhanced_save_attendance(
-                                data["name"],
-                                data["time"],
-                                data["date"],
-                                data["status"],
-                                data["confidence"],
-                                data["quality_score"],
-                            ):
-                                message = f"Attendance recorded: {data['name']} - {data['status']} (Manual)"
-                                self.speak(f"Attendance recorded for {data['name']}")
-                                print(f"✅ {message}")
-                        else:
-                            # Even if confidence is extremely low, still try to save with warning
-                            print(
-                                f"⚠️ Very low confidence: {data['confidence']:.3f}, but attempting to save..."
-                            )
-                            if self.enhanced_save_attendance(
-                                data["name"],
-                                data["time"],
-                                data["date"],
-                                data["status"],
-                                data["confidence"],
-                                data["quality_score"],
-                            ):
-                                message = f"Attendance recorded: {data['name']} - {data['status']} (Low Conf)"
-                                self.speak(f"Attendance recorded with low confidence")
-                                print(f"⚠️ {message}")
+                        # Accept manual recording
+                        if self.save_attendance(data["name"], data["time"], data["status"]):
+                            message = f"Attendance recorded: {data['name']} - {data['status']} (Manual)"
+                            self.speak(f"Attendance recorded for {data['name']}")
+                            print(f"✅ {message}")
                     else:
                         print(
                             f"⏳ Please wait before recording again for {data['name']}"
@@ -1066,58 +982,17 @@ class TouchscreenAttendanceSystem:
             tracking["stable_count"] = 0
             return False, f"Wait {0.5-time_elapsed:.1f}s"
 
-    def enhanced_save_attendance(
-        self, name, time_str, date_str, status, confidence, quality_score
-    ):
-        """Enhanced attendance saving with security logging - FLEXIBLE MODE"""
+    def save_attendance(self, name, time_str, status):
+        """Simple attendance saving - NEW FORMAT"""
         try:
-            attendance_file = self.attendance_dir / f"Attendance_{date_str}.csv"
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            attendance_file = self.attendance_dir / f"Attendance_{current_date}.csv"
 
-            # Check for suspicious activity (but don't block recording)
-            flags = []
-
-            # Track daily records
-            if name not in self.daily_record_count:
-                self.daily_record_count[name] = 0
-            self.daily_record_count[name] += 1
-
-            # Check for rapid successive entries
-            current_time = time.time()
-            if name in self.last_record_time:
-                time_diff = current_time - self.last_record_time[name]
-                if time_diff < self.suspicious_interval:
-                    flags.append(f"RAPID_ENTRY_{time_diff:.1f}s")
-
-            self.last_record_time[name] = current_time
-
-            # Check daily limit (warn but don't block)
-            if self.daily_record_count[name] > self.max_daily_records:
-                flags.append(f"DAILY_LIMIT_EXCEEDED_{self.daily_record_count[name]}")
-
-            # Quality flags (informational only)
-            if quality_score < 0.3:
-                flags.append(f"LOW_QUALITY_{quality_score:.2f}")
-            if confidence < 0.6:
-                flags.append(f"LOW_CONFIDENCE_{confidence:.2f}")
-
-            # Calculate work hours
-            records = self.get_all_records_today(name, date_str)
-            work_hours = self.calculate_work_hours(
-                records
-                + [{"NAME": name, "TIME": time_str, "DATE": date_str, "STATUS": status}]
-            )
-            work_hours_formatted = self.format_work_hours(work_hours)
-
-            # Prepare CSV row with all columns
+            # Prepare CSV row with simplified columns
             row_data = {
                 "NAME": name,
                 "TIME": time_str,
-                "DATE": date_str,
                 "STATUS": status,
-                "WORK_HOURS": work_hours_formatted,
-                "CONFIDENCE": f"{confidence:.3f}",
-                "QUALITY": f"{quality_score:.3f}",
-                "FLAGS": "|".join(flags) if flags else "",
             }
 
             # Write to CSV
@@ -1128,49 +1003,14 @@ class TouchscreenAttendanceSystem:
                     writer.writeheader()
                 writer.writerow(row_data)
 
-            # Log suspicious activities if any
-            if flags:
-                self.log_suspicious_activity(
-                    name,
-                    flags,
-                    {
-                        "confidence": confidence,
-                        "quality": quality_score,
-                        "time": time_str,
-                        "date": date_str,
-                        "status": status,
-                    },
-                )
-
-            print(
-                f"✅ Attendance saved: {name} - {status} (Conf: {confidence:.3f}, Quality: {quality_score:.3f})"
-            )
-            if flags:
-                print(f"⚠️  Flags: {', '.join(flags)}")
-
+            print(f"✅ Attendance saved: {name} - {status} at {time_str}")
             return True
 
         except Exception as e:
             print(f"❌ Error saving attendance: {e}")
             return False
 
-    def log_suspicious_activity(self, name, flags, additional_info):
-        """Log suspicious activities for security monitoring"""
-        try:
-            current_month = datetime.now().strftime("%Y-%m")
-            log_file = self.log_dir / f"suspicious_activities_{current_month}.log"
-
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            flags_str = "|".join(flags)
-            additional_info_json = json.dumps(additional_info)
-
-            log_entry = f"{timestamp} | {name} | {flags_str} | {additional_info_json}\n"
-
-            with open(log_file, "a") as f:
-                f.write(log_entry)
-
-        except Exception as e:
-            print(f"⚠️ Error logging suspicious activity: {e}")
+    # Suspicious activity logging removed - not needed in simplified format
 
 
 def main():

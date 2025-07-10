@@ -31,9 +31,9 @@
   <div class="col-md-3">
     <div class="card dashboard-card stat-card text-center">
       <div class="card-body">
-        <div class="metric-value" id="todayTotalEntries">-</div>
-        <div class="card-text">Total Entries Today</div>
-        <small id="todayClockOuts" class="text-light">- Clock Outs</small>
+        <div class="metric-value" id="registeredFaces">-</div>
+        <div class="card-text">Registered Faces</div>
+        <small id="totalSamples" class="text-light">- Training Samples</small>
       </div>
     </div>
   </div>
@@ -188,11 +188,16 @@
       "todayClockIns"
     ).textContent = `${data.today.clock_ins} Clock Ins`;
 
-    document.getElementById("todayTotalEntries").textContent =
-      data.today.total_entries;
+    document.getElementById("registeredFaces").textContent =
+      data.training_data ? data.training_data.unique_faces : 0;
     document.getElementById(
-      "todayClockOuts"
-    ).textContent = `${data.today.clock_outs} Clock Outs`;
+      "totalSamples"
+    ).textContent = `${data.training_data ? data.training_data.total_samples : 0} Training Samples`;
+    
+    // Show clock outs info in Today's Attendees card instead
+    document.getElementById(
+      "todayClockIns"
+    ).textContent = `${data.today.clock_ins} In | ${data.today.clock_outs} Out`;
 
     document.getElementById("totalRegisteredUsers").textContent =
       data.system_totals.total_registered_users;
