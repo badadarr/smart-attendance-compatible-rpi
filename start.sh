@@ -46,95 +46,24 @@ echo ""
 echo "🚀 Starting Smart Attendance System..."
 echo ""
 echo "📋 Available options:"
-echo "1. Start Simple Attendance System (Keyboard)"
+echo "1. Register New Faces"
 echo "2. Start Touchscreen Attendance (Touch Interface)"
 echo "3. Start Web Dashboard"
-echo "6. Register New Faces"
-echo "7. Exit"
+echo "4. Exit"
 echo ""
 
 while true; do
-    echo -n "Select option (1-7): "
+    echo -n "Select option (1-4): "
     read -r choice
 
     case $choice in
         1)
-            echo "🎯 Starting simple attendance system..."
-            echo "📝 Instructions: Press SPACE to record, ESC to quit"
-            python take_attendance_rpi.py
-            break
-            ;;
-        2)
-            echo "📱 Starting touchscreen attendance system..."
-            python src/take_attendance_touchscreen.py
-            break
-            ;;
-        3)
-            echo "🌐 Starting web dashboard..."
-            echo "📱 Access at: http://127.0.0.1:5000"
-            python src/app.py
-            break
-            ;;
-        4)
-            echo "🧪 Testing new CSV format..."
-            python test_new_format.py
-            echo ""
-            ;;
-        5)
-            echo "🔄 Running CSV format migration..."
-            python scripts/migrate_csv_format.py
-            echo ""
-            ;;
-        6)
             echo "👤 Starting face registration..."
             python src/add_faces_rpi.py
             ;;
-        7)
-            echo "👋 Goodbye!"
-            exit 0
-            ;;
-        *)
-            echo "❌ Invalid option. Please select 1-7."
-            ;;
-    esac
-done
-
-deactivate
-echo "✅ Session completed!"
-echo "2. Start Touchscreen Attendance (No Keyboard Needed)"
-echo "3. Start Web Dashboard Only"
-echo "4. Start Touchscreen Web Interface"
-echo "5. Register New Faces"
-echo "6. System Check"
-echo "7. Performance Monitor"
-echo "8. Backup & Restore"
-echo "9. Validate Setup"
-echo "10. Troubleshoot"
-echo "11. Exit"
-echo ""
-
-while true; do
-    echo -n "Please select an option (1-11): " choice
-    read -r choice
-
-    case $choice in
-        1)
-            echo "🎯 Starting attendance recognition (keyboard/mouse)..."
-            echo "📝 Instructions:"
-            echo "   - Press SPACE to record attendance"
-            echo "   - Press 'q' to quit"
-            echo "   - Ensure good lighting"
-            echo ""
-            python src/take_attendance_rpi.py
-            break
-            ;;
         2)
             echo "📱 Starting touchscreen attendance system..."
-            echo "📝 Instructions:"
-            echo "   - Touch buttons to interact"
-            echo "   - No keyboard needed"
-            echo "   - Fullscreen touchscreen interface"
-            echo ""
+            echo "📝 Instructions: Touch buttons to interact, no keyboard needed"
             python src/take_attendance_touchscreen.py
             break
             ;;
@@ -142,54 +71,15 @@ while true; do
             echo "🌐 Starting web dashboard..."
             echo "📱 Access at: http://$(hostname -I | awk '{print $1}'):5000"
             echo "⚠️  Press Ctrl+C to stop"
-            echo ""
             python src/app.py
             break
             ;;
         4)
-            echo "📱 Starting touchscreen web interface..."
-            echo "🌐 Access at: http://$(hostname -I | awk '{print $1}'):5001"
-            echo "📝 Perfect for touchscreen displays"
-            echo "⚠️  Press Ctrl+C to stop"
-            echo ""
-            python src/app_touchscreen.py
-            break
-            ;;
-        5)
-            echo "👤 Starting face registration..."
-            python src/add_faces_rpi.py
-            ;;
-        6)
-            echo "🔍 Running system check..."
-            python scripts/maintenance/system_check.py
-            echo ""
-            ;;
-        7)
-            echo "⚡ Starting performance monitor..."
-            python scripts/maintenance/performance_monitor.py
-            echo ""
-            ;;
-        8)
-            echo "💾 Opening backup & restore menu..."
-            bash scripts/maintenance/backup_restore.sh
-            echo ""
-            ;;
-        9)
-            echo "✅ Running setup validation..."
-            python scripts/maintenance/validate_setup.py
-            echo ""
-            ;;
-        10)
-            echo "🔧 Running troubleshoot script..."
-            bash scripts/troubleshooting/troubleshoot.sh
-            echo ""
-            ;;
-        11)
             echo "👋 Goodbye!"
             exit 0
             ;;
         *)
-            echo "❌ Invalid option. Please select 1-11."
+            echo "❌ Invalid option. Please select 1-4."
             ;;
     esac
 done
