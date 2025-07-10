@@ -8,22 +8,26 @@
 <div class="row mb-4">
   <div class="col-md-3">
     <div class="stats-card">
-      <div class="stats-number">{{ data.total_students }}</div>
-      <div>Total Students</div>
+      <div class="stats-number">{{ data.total_users_registered }}</div>
+      <div>Total Users</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stats-card">
-      <div class="stats-number">{{ data.total_days }}</div>
-      <div>Total Days</div>
+      <div class="stats-number">{{ data.total_attendance_days }}</div>
+      <div>Active Days</div>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="stats-card">
-      <div class="stats-number" style="font-size: 1.5rem">
-        {{ data.most_common_time }}
-      </div>
-      <div>Most Common Time</div>
+      <div class="stats-number">{{ data.average_work_hours }}</div>
+      <div>Avg Work Hours</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stats-card">
+      <div class="stats-number">{{ data.most_active_user.name }}</div>
+      <div>Most Active User</div>
     </div>
   </div>
 </div>
@@ -43,8 +47,9 @@
       <table class="table table-striped table-hover">        <thead>
           <tr>
             <th><i class="fas fa-user me-1"></i>Name</th>
-            <th><i class="fas fa-calendar-check me-1"></i>Days Present</th>
-            <th><i class="fas fa-check me-1"></i>Total Present</th>
+            <th><i class="fas fa-calendar-check me-1"></i>Days Attended</th>
+            <th><i class="fas fa-check me-1"></i>Total Entries</th>
+            <th><i class="fas fa-clock me-1"></i>Total Hours</th>
             <th><i class="fas fa-percentage me-1"></i>Attendance Rate</th>
           </tr>
         </thead>
@@ -59,6 +64,11 @@
             <td>
               <span class="badge bg-success"
                 >{{ pattern['Total Entries'] }}</span
+              >
+            </td>
+            <td>
+              <span class="badge bg-info"
+                >{{ pattern['Total Work Hours'] }}h</span
               >
             </td>
             <td>

@@ -127,26 +127,26 @@ class TouchscreenAttendanceSystem:
         print("📊 Quality checking: DISABLED (flexible mode)")
         print("📝 System will accept faces regardless of calculated quality")
 
-        # Alternative validation methods (replace strict quality)
-        self.min_face_size = (30, 30)  # Minimum face size in pixels
-        self.max_face_size = (400, 400)  # Maximum face size in pixels
-        self.min_confidence_for_auto = 0.7  # Higher confidence for auto-record
-        self.min_confidence_manual = 0.5  # Lower confidence for manual record
+        # Alternative validation methods (replace strict quality) - VERY PERMISSIVE
+        self.min_face_size = (20, 20)  # Very small minimum face size
+        self.max_face_size = (600, 600)  # Very large maximum face size
+        self.min_confidence_for_auto = 0.4  # Low confidence for auto-record
+        self.min_confidence_manual = 0.3  # Very low confidence for manual record
 
-        # Enhanced stability checking (replace quality gating)
-        self.stability_frames_required = 3  # Consecutive stable detections
-        self.max_position_variance = 200  # Pixels squared variance allowed
-        self.confidence_consistency_threshold = 0.1  # Max confidence variance
+        # Enhanced stability checking (replace quality gating) - VERY FLEXIBLE
+        self.stability_frames_required = 1  # Only 1 frame required (almost instant)
+        self.max_position_variance = 1000  # Very high variance allowed
+        self.confidence_consistency_threshold = 0.3  # High confidence variance allowed
 
         self.min_consecutive_detections = (
             3  # Require multiple detections (not fully implemented in run_attendance)
         )
         self.max_daily_records = 10  # Maximum records per person per day
         self.suspicious_interval = 30  # Seconds between suspicious rapid entries
-        # Face area validation (simple but effective)
-        self.face_area_threshold = 0.005  # Reduced from 0.02 (more permissive)
-        self.optimal_face_area_min = 0.01  # Warn if too small
-        self.optimal_face_area_max = 0.3  # Warn if too large
+        # Face area validation (simple but effective) - ULTRA PERMISSIVE
+        self.face_area_threshold = 0.001  # Ultra low threshold
+        self.optimal_face_area_min = 0.005  # Very small warning threshold
+        self.optimal_face_area_max = 0.5  # Very large warning threshold
 
         # Anti-fraud tracking
         self.detection_history = (
@@ -191,11 +191,16 @@ class TouchscreenAttendanceSystem:
             self.knn.fit(faces_data, self.labels)
 
             print(f"✅ Training data loaded successfully")
-            print(f"📊 Registered faces: {len(set(self.labels))}")
+            unique_faces = len(set(self.labels))
+            total_samples = len(self.labels)
+            print(f"📊 Registered faces: {unique_faces}")
+            print(f"📊 Total training samples: {total_samples}")
+            print(f"📋 Registered names: {', '.join(sorted(set(self.labels)))}")
             return True
 
         except Exception as e:
             print(f"❌ Error loading training data: {e}")
+            print(f"💡 Try running: python tools/analyze_training_data.py")
             return False
 
     def initialize_camera(self):
@@ -609,147 +614,149 @@ class TouchscreenAttendanceSystem:
                 if name is not None:
                     face_center = (x + w // 2, y + h // 2)
 
-                    # Use enhanced stability checking
+                    # Use enhanced stability checking (but don't require it for recording)
                     is_stable, stability_msg = self.is_face_stable_enhanced(
                         name, face_center, confidence, face_rect
                     )
 
-                    if is_stable:
-                        recognized_name = name
+                    # FLEXIBLE MODE: Accept face even if not fully stable
+                    recognized_name = name
 
-                        current_time_str = datetime.now().strftime("%H:%M:%S")
-                        current_date_str = datetime.now().strftime("%Y-%m-%d")
-                        attendance_status = self.determine_attendance_status(
-                            name, current_time_str, current_date_str
-                        )
+                    current_time_str = datetime.now().strftime("%H:%M:%S")
+                    current_date_str = datetime.now().strftime("%Y-%m-%d")
+                    attendance_status = self.determine_attendance_status(
+                        name, current_time_str, current_date_str
+                    )
 
-                        # Use different confidence thresholds for auto vs manual
-                        min_conf = (
-                            self.min_confidence_for_auto
-                            if self.auto_record_mode
-                            else self.min_confidence_manual
-                        )
+                    # Use different confidence thresholds for auto vs manual
+                    min_conf = (
+                        self.min_confidence_for_auto
+                        if self.auto_record_mode
+                        else self.min_confidence_manual
+                    )
 
-                        if confidence >= min_conf:
-                            self.current_recognition_data = {
-                                "name": name,
-                                "time": current_time_str,
-                                "date": current_date_str,
-                                "status": attendance_status,
-                                "confidence": confidence,
-                                "quality_score": quality_score,
-                            }
+                    if confidence >= min_conf:
+                        self.current_recognition_data = {
+                            "name": name,
+                            "time": current_time_str,
+                            "date": current_date_str,
+                            "status": attendance_status,
+                            "confidence": confidence,
+                            "quality_score": quality_score,
+                        }
 
-                            # Draw enhanced rectangle - color based on confidence and warnings
-                            if confidence >= 0.8:
-                                color = (0, 255, 0)  # Green for high confidence
-                            elif confidence >= 0.6:
-                                color = (0, 255, 255)  # Yellow for medium confidence
-                            else:
-                                color = (0, 165, 255)  # Orange for low confidence
-
-                            # Add red tint if there are warnings
-                            if validation["warnings"]:
-                                color = (0, 100, 255)  # Orange-red for warnings
-
-                            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 3)
-
-                            # Display information
-                            cv2.putText(
-                                frame,
-                                name,
-                                (x, y - 50),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.8,
-                                color,
-                                2,
-                            )
-                            cv2.putText(
-                                frame,
-                                f"Conf: {confidence*100:.1f}%",
-                                (x, y - 30),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.6,
-                                color,
-                                2,
-                            )
-                            cv2.putText(
-                                frame,
-                                f"Q: {quality_score:.2f}",
-                                (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.5,
-                                color,
-                                1,
-                            )
-                            cv2.putText(
-                                frame,
-                                f"Next: {attendance_status}",
-                                (x, y + h + 20),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.6,
-                                (255, 255, 0),
-                                2,
-                            )
-
-                            # Show validation info
-                            if validation["warnings"]:
-                                warning_text = validation["warnings"][0][
-                                    :20
-                                ]  # Truncate long warnings
-                                cv2.putText(
-                                    frame,
-                                    f"⚠️ {warning_text}",
-                                    (x, y + h + 40),
-                                    cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.4,
-                                    (0, 165, 255),
-                                    1,
-                                )
-
-                            # Auto record logic with flexible confidence
-                            if (
-                                self.auto_record_mode
-                                and self.can_auto_record(name)
-                                and confidence >= self.min_confidence_for_auto
-                            ):
-                                if self.enhanced_save_attendance(
-                                    name,
-                                    current_time_str,
-                                    current_date_str,
-                                    attendance_status,
-                                    confidence,
-                                    quality_score,
-                                ):
-                                    message = (
-                                        f"Auto recorded: {name} - {attendance_status}"
-                                    )
-                                    self.speak(message)
-                                    print(f"🤖 {message}")
+                        # Draw enhanced rectangle - color based on confidence and warnings
+                        if confidence >= 0.8:
+                            color = (0, 255, 0)  # Green for high confidence
+                        elif confidence >= 0.6:
+                            color = (0, 255, 255)  # Yellow for medium confidence
                         else:
-                            # Confidence too low
-                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                            cv2.putText(
-                                frame,
-                                f"{name} (Low Conf: {confidence*100:.1f}%)",
-                                (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.6,
-                                (0, 0, 255),
-                                2,
-                            )
-                    else:
-                        # Not stable yet
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 100, 255), 2)
+                            color = (0, 165, 255)  # Orange for low confidence
+
+                        # Add red tint if there are warnings
+                        if validation["warnings"]:
+                            color = (0, 100, 255)  # Orange-red for warnings
+
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 3)
+
+                        # Display information with stability status
+                        stability_indicator = "✓" if is_stable else "~"
                         cv2.putText(
                             frame,
-                            f"{name} ({stability_msg})",
-                            (x, y - 10),
+                            f"{stability_indicator} {name}",
+                            (x, y - 50),
                             cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (0, 100, 255),
+                            0.8,
+                            color,
                             2,
                         )
+                        cv2.putText(
+                            frame,
+                            f"Conf: {confidence*100:.1f}%",
+                            (x, y - 30),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            color,
+                            2,
+                        )
+                        cv2.putText(
+                            frame,
+                            f"Q: {quality_score:.2f} | {stability_msg}",
+                            (x, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.4,
+                            color,
+                            1,
+                        )
+                        cv2.putText(
+                            frame,
+                            f"Next: {attendance_status}",
+                            (x, y + h + 20),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            (255, 255, 0),
+                            2,
+                        )
+
+                        # Show validation info
+                        if validation["warnings"]:
+                            warning_text = validation["warnings"][0][
+                                :20
+                            ]  # Truncate long warnings
+                            cv2.putText(
+                                frame,
+                                f"⚠️ {warning_text}",
+                                (x, y + h + 40),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.4,
+                                (0, 165, 255),
+                                1,
+                            )
+
+                        # Auto record logic with flexible confidence (no stability requirement)
+                        if (
+                            self.auto_record_mode
+                            and self.can_auto_record(name)
+                            and confidence >= self.min_confidence_for_auto
+                        ):
+                            if self.enhanced_save_attendance(
+                                name,
+                                current_time_str,
+                                current_date_str,
+                                attendance_status,
+                                confidence,
+                                quality_score,
+                            ):
+                                stability_note = (
+                                    "(stable)" if is_stable else "(flexible)"
+                                )
+                                message = f"Auto recorded: {name} - {attendance_status} {stability_note}"
+                                self.speak(
+                                    f"Auto recorded: {name} - {attendance_status}"
+                                )
+                                print(f"🤖 {message}")
+                    else:
+                        # Confidence too low but still show the face
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                        stability_indicator = "✓" if is_stable else "~"
+                        cv2.putText(
+                            frame,
+                            f"{stability_indicator} {name} (Low Conf: {confidence*100:.1f}%)",
+                            (x, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5,
+                            (0, 0, 255),
+                            2,
+                        )
+                        # Still store recognition data for manual recording
+                        self.current_recognition_data = {
+                            "name": name,
+                            "time": current_time_str,
+                            "date": current_date_str,
+                            "status": attendance_status,
+                            "confidence": confidence,
+                            "quality_score": quality_score,
+                        }
                 else:
                     # Unknown face
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
@@ -770,14 +777,14 @@ class TouchscreenAttendanceSystem:
             frame = self.draw_touchscreen_ui(frame, recognized_name)
             cv2.imshow("Touchscreen Attendance System", frame)
 
-            # Handle button clicks with flexible confidence requirements
+            # Handle button clicks with ultra-flexible confidence requirements
             if self.button_clicked:
                 self.button_clicked = False
                 if self.current_recognition_data:
                     data = self.current_recognition_data
                     if self.can_process_recognition(data["name"]):
-                        # Use lower confidence threshold for manual recording
-                        if data["confidence"] >= self.min_confidence_manual:
+                        # ULTRA FLEXIBLE: Accept even very low confidence for manual recording
+                        if data["confidence"] >= 0.2:  # Ultra low threshold
                             if self.enhanced_save_attendance(
                                 data["name"],
                                 data["time"],
@@ -786,20 +793,31 @@ class TouchscreenAttendanceSystem:
                                 data["confidence"],
                                 data["quality_score"],
                             ):
-                                message = f"Attendance recorded: {data['name']} - {data['status']}"
-                                self.speak(message)
+                                message = f"Attendance recorded: {data['name']} - {data['status']} (Manual)"
+                                self.speak(f"Attendance recorded for {data['name']}")
                                 print(f"✅ {message}")
                         else:
+                            # Even if confidence is extremely low, still try to save with warning
                             print(
-                                f"❌ Confidence too low for manual record: {data['confidence']:.3f} < {self.min_confidence_manual}"
+                                f"⚠️ Very low confidence: {data['confidence']:.3f}, but attempting to save..."
                             )
-                            self.speak("Please position your face better and try again")
+                            if self.enhanced_save_attendance(
+                                data["name"],
+                                data["time"],
+                                data["date"],
+                                data["status"],
+                                data["confidence"],
+                                data["quality_score"],
+                            ):
+                                message = f"Attendance recorded: {data['name']} - {data['status']} (Low Conf)"
+                                self.speak(f"Attendance recorded with low confidence")
+                                print(f"⚠️ {message}")
                     else:
                         print(
                             f"⏳ Please wait before recording again for {data['name']}"
                         )
                 else:
-                    print("👤 No stable face recognized to record attendance")
+                    print("👤 No face recognized to record attendance")
 
             if self.exit_clicked:
                 break
@@ -1033,31 +1051,126 @@ class TouchscreenAttendanceSystem:
         conf_variance = np.var(confidences)
         confidence_stable = conf_variance < self.confidence_consistency_threshold
 
-        # Time requirement
+        # Time requirement - ULTRA FLEXIBLE
         time_elapsed = current_time - tracking["first_detection"]
-        time_sufficient = time_elapsed >= 1.0  # Reduced from 2.0 seconds
+        time_sufficient = time_elapsed >= 0.5  # Very short time requirement
 
-        # Overall stability assessment
+        # Overall stability assessment - VERY PERMISSIVE
         if position_stable and confidence_stable and time_sufficient:
             tracking["stable_count"] += 1
-            if tracking["stable_count"] >= 2:  # Require only 2 stable frames
-                return True, "Stable"
-            else:
-                return False, f"Stabilizing ({tracking['stable_count']}/2)"
+            return True, "Stable"  # Immediately stable
+        elif time_sufficient:  # If enough time passed, consider it stable enough
+            tracking["stable_count"] += 1
+            return True, "Flexible"  # Flexible stability
         else:
             tracking["stable_count"] = 0
+            return False, f"Wait {0.5-time_elapsed:.1f}s"
 
-            # Provide specific feedback
-            if not position_stable:
-                return False, "Position unstable"
-            elif not confidence_stable:
-                return False, "Recognition unstable"
-            elif not time_sufficient:
-                return False, f"Wait {1.0-time_elapsed:.1f}s"
-            else:
-                return False, "Stabilizing..."
+    def enhanced_save_attendance(
+        self, name, time_str, date_str, status, confidence, quality_score
+    ):
+        """Enhanced attendance saving with security logging - FLEXIBLE MODE"""
+        try:
+            attendance_file = self.attendance_dir / f"Attendance_{date_str}.csv"
 
-    # ...existing code...
+            # Check for suspicious activity (but don't block recording)
+            flags = []
+
+            # Track daily records
+            if name not in self.daily_record_count:
+                self.daily_record_count[name] = 0
+            self.daily_record_count[name] += 1
+
+            # Check for rapid successive entries
+            current_time = time.time()
+            if name in self.last_record_time:
+                time_diff = current_time - self.last_record_time[name]
+                if time_diff < self.suspicious_interval:
+                    flags.append(f"RAPID_ENTRY_{time_diff:.1f}s")
+
+            self.last_record_time[name] = current_time
+
+            # Check daily limit (warn but don't block)
+            if self.daily_record_count[name] > self.max_daily_records:
+                flags.append(f"DAILY_LIMIT_EXCEEDED_{self.daily_record_count[name]}")
+
+            # Quality flags (informational only)
+            if quality_score < 0.3:
+                flags.append(f"LOW_QUALITY_{quality_score:.2f}")
+            if confidence < 0.6:
+                flags.append(f"LOW_CONFIDENCE_{confidence:.2f}")
+
+            # Calculate work hours
+            records = self.get_all_records_today(name, date_str)
+            work_hours = self.calculate_work_hours(
+                records
+                + [{"NAME": name, "TIME": time_str, "DATE": date_str, "STATUS": status}]
+            )
+            work_hours_formatted = self.format_work_hours(work_hours)
+
+            # Prepare CSV row with all columns
+            row_data = {
+                "NAME": name,
+                "TIME": time_str,
+                "DATE": date_str,
+                "STATUS": status,
+                "WORK_HOURS": work_hours_formatted,
+                "CONFIDENCE": f"{confidence:.3f}",
+                "QUALITY": f"{quality_score:.3f}",
+                "FLAGS": "|".join(flags) if flags else "",
+            }
+
+            # Write to CSV
+            file_exists = attendance_file.exists()
+            with open(attendance_file, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.csv_columns)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(row_data)
+
+            # Log suspicious activities if any
+            if flags:
+                self.log_suspicious_activity(
+                    name,
+                    flags,
+                    {
+                        "confidence": confidence,
+                        "quality": quality_score,
+                        "time": time_str,
+                        "date": date_str,
+                        "status": status,
+                    },
+                )
+
+            print(
+                f"✅ Attendance saved: {name} - {status} (Conf: {confidence:.3f}, Quality: {quality_score:.3f})"
+            )
+            if flags:
+                print(f"⚠️  Flags: {', '.join(flags)}")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Error saving attendance: {e}")
+            return False
+
+    def log_suspicious_activity(self, name, flags, additional_info):
+        """Log suspicious activities for security monitoring"""
+        try:
+            current_month = datetime.now().strftime("%Y-%m")
+            log_file = self.log_dir / f"suspicious_activities_{current_month}.log"
+
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            flags_str = "|".join(flags)
+            additional_info_json = json.dumps(additional_info)
+
+            log_entry = f"{timestamp} | {name} | {flags_str} | {additional_info_json}\n"
+
+            with open(log_file, "a") as f:
+                f.write(log_entry)
+
+        except Exception as e:
+            print(f"⚠️ Error logging suspicious activity: {e}")
 
 
 def main():
