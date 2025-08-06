@@ -1,6 +1,4 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <h1 class="page-title">
   <i class="fas fa-chart-bar me-3"></i>
   Attendance Reports
@@ -14,20 +12,33 @@
         <div class="col-md-6">
           <label class="form-label">Report Period:</label>
           <div class="btn-group" role="group">
-            <input type="radio" class="btn-check" name="period" id="period7" value="7" {% if data.period_days == 7 %}checked{% endif %} onchange="toggleCustomRange(false); this.form.submit()">
-            <label class="btn btn-outline-primary" for="period7">7 Days</label>
-            
-            <input type="radio" class="btn-check" name="period" id="period14" value="14" {% if data.period_days == 14 %}checked{% endif %} onchange="toggleCustomRange(false); this.form.submit()">
-            <label class="btn btn-outline-primary" for="period14">14 Days</label>
-            
-            <input type="radio" class="btn-check" name="period" id="period30" value="30" {% if data.period_days == 30 %}checked{% endif %} onchange="toggleCustomRange(false); this.form.submit()">
-            <label class="btn btn-outline-primary" for="period30">30 Days</label>
-            
-            <input type="radio" class="btn-check" name="period" id="period60" value="60" {% if data.period_days == 60 %}checked{% endif %} onchange="toggleCustomRange(false); this.form.submit()">
-            <label class="btn btn-outline-primary" for="period60">60 Days</label>
-            
-            <input type="radio" class="btn-check" name="period" id="periodCustom" value="custom" {% if data.period_days == 'custom' %}checked{% endif %} onchange="toggleCustomRange(true)">
-            <label class="btn btn-outline-success" for="periodCustom">Custom Range</label>
+            <a
+              href="/attendance_reports?period=7"
+              class="btn {% if data.period_days == 7 %}btn-primary{% else %}btn-outline-primary{% endif %}"
+              >7 Days</a
+            >
+            <a
+              href="/attendance_reports?period=14"
+              class="btn {% if data.period_days == 14 %}btn-primary{% else %}btn-outline-primary{% endif %}"
+              >14 Days</a
+            >
+            <a
+              href="/attendance_reports?period=30"
+              class="btn {% if data.period_days == 30 %}btn-primary{% else %}btn-outline-primary{% endif %}"
+              >30 Days</a
+            >
+            <a
+              href="/attendance_reports?period=60"
+              class="btn {% if data.period_days == 60 %}btn-primary{% else %}btn-outline-primary{% endif %}"
+              >60 Days</a
+            >
+
+            <input type="radio" class="btn-check" name="period"
+            id="periodCustom" value="custom" {% if data.period_days == 'custom'
+            %}checked{% endif %} onchange="toggleCustomRange(true)">
+            <label class="btn btn-outline-success" for="periodCustom"
+              >Custom Range</label
+            >
           </div>
         </div>
         <div class="col-md-6 text-end">
@@ -37,30 +48,54 @@
           </small>
         </div>
       </div>
-      
+
       <!-- Custom Date Range -->
-      <div class="row mt-3" id="customDateRange" style="display: {% if data.period_days == 'custom' %}block{% else %}none{% endif %};">
+      <div
+        class="row mt-3"
+        id="customDateRange"
+        style="display: {% if data.period_days == 'custom' %}block{% else %}none{% endif %};"
+      >
         <div class="col-md-3">
           <label class="form-label">Start Date:</label>
-          <input type="date" class="form-control" name="start_date" id="startDate" value="{{ data.custom_start or data.start_date }}">
+          <input
+            type="date"
+            class="form-control"
+            name="start_date"
+            id="startDate"
+            value="{{ data.custom_start or data.start_date }}"
+          />
         </div>
         <div class="col-md-3">
           <label class="form-label">End Date:</label>
-          <input type="date" class="form-control" name="end_date" id="endDate" value="{{ data.custom_end or data.end_date }}">
+          <input
+            type="date"
+            class="form-control"
+            name="end_date"
+            id="endDate"
+            value="{{ data.custom_end or data.end_date }}"
+          />
         </div>
         <div class="col-md-3">
-          <label class="form-label">&nbsp;</label><br>
+          <label class="form-label">&nbsp;</label><br />
           <button type="submit" class="btn btn-success">
             <i class="fas fa-search me-1"></i>Apply Range
           </button>
         </div>
         <div class="col-md-3">
-          <label class="form-label">&nbsp;</label><br>
+          <label class="form-label">&nbsp;</label><br />
           <div class="btn-group">
-            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setQuickRange(7)">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              onclick="setQuickRange(7)"
+            >
               Last 7 Days
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setQuickRange(30)">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              onclick="setQuickRange(30)"
+            >
               Last 30 Days
             </button>
           </div>
@@ -70,11 +105,11 @@
   </div>
 </div>
 
-{% if data.has_data %}
-{% if data.period_days == 'custom' %}
+{% if data.has_data %} {% if data.period_days == 'custom' %}
 <div class="alert alert-info">
   <i class="fas fa-calendar-alt me-2"></i>
-  <strong>Custom Date Range:</strong> {{ data.start_date }} to {{ data.end_date }}
+  <strong>Custom Date Range:</strong> {{ data.start_date }} to {{ data.end_date
+  }}
 </div>
 {% endif %}
 
@@ -94,13 +129,17 @@
   </div>
   <div class="col-md-3">
     <div class="stats-card">
-      <div class="stats-number">{{ data.summary_stats.total_clock_ins or 0 }}</div>
+      <div class="stats-number">
+        {{ data.summary_stats.total_clock_ins or 0 }}
+      </div>
       <div>Clock Ins</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stats-card">
-      <div class="stats-number">{{ data.summary_stats.total_clock_outs or 0 }}</div>
+      <div class="stats-number">
+        {{ data.summary_stats.total_clock_outs or 0 }}
+      </div>
       <div>Clock Outs</div>
     </div>
   </div>
@@ -118,20 +157,21 @@
         </h6>
       </div>
       <div class="card-body">
-        {% if data.absence_tracking.absent_today %}
-          {% for user in data.absence_tracking.absent_today %}
-            <span class="badge bg-danger me-1 mb-1">{{ user }}</span>
-          {% endfor %}
-          <div class="mt-2">
-            <small class="text-muted">
-              {{ data.absence_tracking.absent_today|length }} of {{ data.absence_tracking.total_registered }} employees absent
-            </small>
-          </div>
+        {% if data.absence_tracking.absent_today %} {% for user in
+        data.absence_tracking.absent_today %}
+        <span class="badge bg-danger me-1 mb-1">{{ user }}</span>
+        {% endfor %}
+        <div class="mt-2">
+          <small class="text-muted">
+            {{ data.absence_tracking.absent_today|length }} of {{
+            data.absence_tracking.total_registered }} employees absent
+          </small>
+        </div>
         {% else %}
-          <div class="text-success">
-            <i class="fas fa-check-circle me-2"></i>
-            All employees are present today!
-          </div>
+        <div class="text-success">
+          <i class="fas fa-check-circle me-2"></i>
+          All employees are present today!
+        </div>
         {% endif %}
       </div>
     </div>
@@ -145,20 +185,21 @@
         </h6>
       </div>
       <div class="card-body">
-        {% if data.absence_tracking.present_today %}
-          {% for user in data.absence_tracking.present_today %}
-            <span class="badge bg-success me-1 mb-1">{{ user }}</span>
-          {% endfor %}
-          <div class="mt-2">
-            <small class="text-muted">
-              {{ data.absence_tracking.present_today|length }} of {{ data.absence_tracking.total_registered }} employees present
-            </small>
-          </div>
+        {% if data.absence_tracking.present_today %} {% for user in
+        data.absence_tracking.present_today %}
+        <span class="badge bg-success me-1 mb-1">{{ user }}</span>
+        {% endfor %}
+        <div class="mt-2">
+          <small class="text-muted">
+            {{ data.absence_tracking.present_today|length }} of {{
+            data.absence_tracking.total_registered }} employees present
+          </small>
+        </div>
         {% else %}
-          <div class="text-warning">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            No employees have checked in today
-          </div>
+        <div class="text-warning">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          No employees have checked in today
+        </div>
         {% endif %}
       </div>
     </div>
@@ -171,8 +212,12 @@
   <div class="col-md-3">
     <div class="card">
       <div class="card-body text-center">
-        <h5 class="card-title"><i class="fas fa-chart-line me-2"></i>Daily Average</h5>
-        <h3 class="text-primary">{{ data.summary_stats.avg_entries_per_day or 0 }}</h3>
+        <h5 class="card-title">
+          <i class="fas fa-chart-line me-2"></i>Daily Average
+        </h5>
+        <h3 class="text-primary">
+          {{ data.summary_stats.avg_entries_per_day or 0 }}
+        </h3>
         <p class="text-muted mb-0">Entries per day</p>
       </div>
     </div>
@@ -180,8 +225,12 @@
   <div class="col-md-3">
     <div class="card">
       <div class="card-body text-center">
-        <h5 class="card-title"><i class="fas fa-star me-2"></i>Most Active Day</h5>
-        <h3 class="text-success">{{ data.summary_stats.most_active_day or 'N/A' }}</h3>
+        <h5 class="card-title">
+          <i class="fas fa-star me-2"></i>Most Active Day
+        </h5>
+        <h3 class="text-success">
+          {{ data.summary_stats.most_active_day or 'N/A' }}
+        </h3>
         <p class="text-muted mb-0">Highest attendance</p>
       </div>
     </div>
@@ -190,8 +239,12 @@
   <div class="col-md-3">
     <div class="card">
       <div class="card-body text-center">
-        <h5 class="card-title"><i class="fas fa-user-times me-2"></i>Absent Today</h5>
-        <h3 class="text-danger">{{ data.absence_tracking.absent_today|length }}</h3>
+        <h5 class="card-title">
+          <i class="fas fa-user-times me-2"></i>Absent Today
+        </h5>
+        <h3 class="text-danger">
+          {{ data.absence_tracking.absent_today|length }}
+        </h3>
         <p class="text-muted mb-0">Employees</p>
       </div>
     </div>
@@ -199,9 +252,15 @@
   <div class="col-md-3">
     <div class="card">
       <div class="card-body text-center">
-        <h5 class="card-title"><i class="fas fa-percentage me-2"></i>Attendance Rate</h5>
-        {% set attendance_rate = ((data.absence_tracking.present_today|length / data.absence_tracking.total_registered) * 100) if data.absence_tracking.total_registered > 0 else 0 %}
-        <h3 class="{% if attendance_rate >= 90 %}text-success{% elif attendance_rate >= 75 %}text-warning{% else %}text-danger{% endif %}">
+        <h5 class="card-title">
+          <i class="fas fa-percentage me-2"></i>Attendance Rate
+        </h5>
+        {% set attendance_rate = ((data.absence_tracking.present_today|length /
+        data.absence_tracking.total_registered) * 100) if
+        data.absence_tracking.total_registered > 0 else 0 %}
+        <h3
+          class="{% if attendance_rate >= 90 %}text-success{% elif attendance_rate >= 75 %}text-warning{% else %}text-danger{% endif %}"
+        >
           {{ "%.1f"|format(attendance_rate) }}%
         </h3>
         <p class="text-muted mb-0">Today</p>
@@ -225,19 +284,27 @@
       <div class="card-body">
         <div class="row">
           <div class="col-md-3 text-center">
-            <div class="metric-value text-primary">{{ data.working_hours.summary.total_working_hours }}h</div>
+            <div class="metric-value text-primary">
+              {{ data.working_hours.summary.total_working_hours }}h
+            </div>
             <small class="text-muted">Total Hours</small>
           </div>
           <div class="col-md-3 text-center">
-            <div class="metric-value text-success">{{ data.working_hours.summary.avg_daily_hours }}h</div>
+            <div class="metric-value text-success">
+              {{ data.working_hours.summary.avg_daily_hours }}h
+            </div>
             <small class="text-muted">Avg Daily Hours</small>
           </div>
           <div class="col-md-3 text-center">
-            <div class="metric-value text-warning">{{ data.working_hours.summary.max_daily_hours }}h</div>
+            <div class="metric-value text-warning">
+              {{ data.working_hours.summary.max_daily_hours }}h
+            </div>
             <small class="text-muted">Max Daily Hours</small>
           </div>
           <div class="col-md-3 text-center">
-            <div class="metric-value text-info">{{ data.working_hours.summary.min_daily_hours }}h</div>
+            <div class="metric-value text-info">
+              {{ data.working_hours.summary.min_daily_hours }}h
+            </div>
             <small class="text-muted">Min Daily Hours</small>
           </div>
         </div>
@@ -253,12 +320,9 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">
       <i class="fas fa-user-clock me-2"></i>
-      Absence Analysis 
-      {% if data.period_days == 'custom' %}
-        ({{ data.start_date }} to {{ data.end_date }})
-      {% else %}
-        ({{ data.period_days }} Days)
-      {% endif %}
+      Absence Analysis {% if data.period_days == 'custom' %} ({{ data.start_date
+      }} to {{ data.end_date }}) {% else %} ({{ data.period_days }} Days) {%
+      endif %}
     </h5>
     <button class="btn btn-light btn-sm" onclick="exportAbsenceTable()">
       <i class="fas fa-download me-1"></i>Export
@@ -277,31 +341,50 @@
           </tr>
         </thead>
         <tbody>
-          {% for user, stats in data.absence_tracking.period_attendance.items() %}
+          {% for user, stats in data.absence_tracking.period_attendance.items()
+          %}
           <tr>
             <td><strong>{{ user }}</strong></td>
-            <td><span class="badge bg-success">{{ stats.days_present }}</span></td>
-            <td><span class="badge bg-danger">{{ stats.days_absent }}</span></td>
             <td>
-              <div class="progress" style="height: 20px;">
-                {% set absence_color = 'bg-success' if stats.absence_rate < 10 else ('bg-warning' if stats.absence_rate < 25 else 'bg-danger') %}
-                <div class="progress-bar {{ absence_color }}" role="progressbar" 
-                     style="width: {{ stats.absence_rate }}%"
-                     aria-valuenow="{{ stats.absence_rate }}" 
-                     aria-valuemin="0" aria-valuemax="100">
+              <span class="badge bg-success">{{ stats.days_present }}</span>
+            </td>
+            <td>
+              <span class="badge bg-danger">{{ stats.days_absent }}</span>
+            </td>
+            <td>
+              <div class="progress" style="height: 20px">
+                {% set absence_color = 'bg-success' if stats.absence_rate < 10
+                else ('bg-warning' if stats.absence_rate < 25 else 'bg-danger')
+                %}
+                <div
+                  class="progress-bar {{ absence_color }}"
+                  role="progressbar"
+                  style="width: {{ stats.absence_rate }}%"
+                  aria-valuenow="{{ stats.absence_rate }}"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
                   {{ stats.absence_rate }}%
                 </div>
               </div>
             </td>
             <td>
               {% if stats.absence_rate == 0 %}
-                <span class="badge bg-success"><i class="fas fa-star me-1"></i>Perfect</span>
+              <span class="badge bg-success"
+                ><i class="fas fa-star me-1"></i>Perfect</span
+              >
               {% elif stats.absence_rate < 10 %}
-                <span class="badge bg-info"><i class="fas fa-thumbs-up me-1"></i>Good</span>
+              <span class="badge bg-info"
+                ><i class="fas fa-thumbs-up me-1"></i>Good</span
+              >
               {% elif stats.absence_rate < 25 %}
-                <span class="badge bg-warning"><i class="fas fa-exclamation me-1"></i>Fair</span>
+              <span class="badge bg-warning"
+                ><i class="fas fa-exclamation me-1"></i>Fair</span
+              >
               {% else %}
-                <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Poor</span>
+              <span class="badge bg-danger"
+                ><i class="fas fa-times me-1"></i>Poor</span
+              >
               {% endif %}
             </td>
           </tr>
@@ -319,12 +402,9 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">
       <i class="fas fa-business-time me-2"></i>
-      Working Hours Analysis
-      {% if data.period_days == 'custom' %}
-        ({{ data.start_date }} to {{ data.end_date }})
-      {% else %}
-        ({{ data.period_days }} Days)
-      {% endif %}
+      Working Hours Analysis {% if data.period_days == 'custom' %} ({{
+      data.start_date }} to {{ data.end_date }}) {% else %} ({{ data.period_days
+      }} Days) {% endif %}
     </h5>
     <button class="btn btn-light btn-sm" onclick="exportWorkingHoursTable()">
       <i class="fas fa-download me-1"></i>Export
@@ -349,31 +429,55 @@
           {% for user, stats in data.working_hours.analysis.items() %}
           <tr>
             <td><strong>{{ user }}</strong></td>
-            <td><span class="badge bg-primary">{{ stats.total_hours }}h</span></td>
-            <td><span class="badge bg-info">{{ stats.working_days }}</span></td>
-            <td><span class="badge bg-success">{{ stats.avg_hours_per_day }}h</span></td>
-            <td><span class="badge bg-warning">{{ stats.max_hours }}h</span></td>
-            <td><span class="badge bg-secondary">{{ stats.min_hours }}h</span></td>
             <td>
-              <div class="progress" style="height: 20px;">
-                {% set efficiency_color = 'bg-success' if stats.efficiency >= 90 else ('bg-warning' if stats.efficiency >= 75 else 'bg-danger') %}
-                <div class="progress-bar {{ efficiency_color }}" role="progressbar" 
-                     style="width: {{ stats.efficiency }}%"
-                     aria-valuenow="{{ stats.efficiency }}" 
-                     aria-valuemin="0" aria-valuemax="100">
+              <span class="badge bg-primary">{{ stats.total_hours }}h</span>
+            </td>
+            <td><span class="badge bg-info">{{ stats.working_days }}</span></td>
+            <td>
+              <span class="badge bg-success"
+                >{{ stats.avg_hours_per_day }}h</span
+              >
+            </td>
+            <td>
+              <span class="badge bg-warning">{{ stats.max_hours }}h</span>
+            </td>
+            <td>
+              <span class="badge bg-secondary">{{ stats.min_hours }}h</span>
+            </td>
+            <td>
+              <div class="progress" style="height: 20px">
+                {% set efficiency_color = 'bg-success' if stats.efficiency >= 90
+                else ('bg-warning' if stats.efficiency >= 75 else 'bg-danger')
+                %}
+                <div
+                  class="progress-bar {{ efficiency_color }}"
+                  role="progressbar"
+                  style="width: {{ stats.efficiency }}%"
+                  aria-valuenow="{{ stats.efficiency }}"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
                   {{ stats.efficiency }}%
                 </div>
               </div>
             </td>
             <td>
               {% if stats.avg_hours_per_day >= 8 %}
-                <span class="badge bg-success"><i class="fas fa-star me-1"></i>Excellent</span>
+              <span class="badge bg-success"
+                ><i class="fas fa-star me-1"></i>Excellent</span
+              >
               {% elif stats.avg_hours_per_day >= 7 %}
-                <span class="badge bg-info"><i class="fas fa-thumbs-up me-1"></i>Good</span>
+              <span class="badge bg-info"
+                ><i class="fas fa-thumbs-up me-1"></i>Good</span
+              >
               {% elif stats.avg_hours_per_day >= 6 %}
-                <span class="badge bg-warning"><i class="fas fa-exclamation me-1"></i>Fair</span>
+              <span class="badge bg-warning"
+                ><i class="fas fa-exclamation me-1"></i>Fair</span
+              >
               {% else %}
-                <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Poor</span>
+              <span class="badge bg-danger"
+                ><i class="fas fa-times me-1"></i>Poor</span
+              >
               {% endif %}
             </td>
           </tr>
@@ -390,12 +494,9 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">
       <i class="fas fa-users me-2"></i>
-      Employee Attendance 
-      {% if data.period_days == 'custom' %}
-        ({{ data.start_date }} to {{ data.end_date }})
-      {% else %}
-        ({{ data.period_days }} Days)
-      {% endif %}
+      Employee Attendance {% if data.period_days == 'custom' %} ({{
+      data.start_date }} to {{ data.end_date }}) {% else %} ({{ data.period_days
+      }} Days) {% endif %}
     </h5>
     <button class="btn btn-light btn-sm" onclick="exportTable()">
       <i class="fas fa-download me-1"></i>Export
@@ -416,14 +517,24 @@
           {% for employee in data.employee_attendance %}
           <tr>
             <td><strong>{{ employee['Employee Name'] }}</strong></td>
-            <td><span class="badge bg-info">{{ employee['Total Entries'] }}</span></td>
-            <td><span class="badge bg-success">{{ employee['Clock In Count'] }}</span></td>
             <td>
-              <div class="progress" style="height: 20px;">
-                <div class="progress-bar" role="progressbar" 
-                     style="width: {{ employee['Attendance Rate (%)'] }}%"
-                     aria-valuenow="{{ employee['Attendance Rate (%)'] }}" 
-                     aria-valuemin="0" aria-valuemax="100">
+              <span class="badge bg-info">{{ employee['Total Entries'] }}</span>
+            </td>
+            <td>
+              <span class="badge bg-success"
+                >{{ employee['Clock In Count'] }}</span
+              >
+            </td>
+            <td>
+              <div class="progress" style="height: 20px">
+                <div
+                  class="progress-bar"
+                  role="progressbar"
+                  style="width: {{ employee['Attendance Rate (%)'] }}%"
+                  aria-valuenow="{{ employee['Attendance Rate (%)'] }}"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
                   {{ employee['Attendance Rate (%)'] }}%
                 </div>
               </div>
@@ -501,340 +612,368 @@
     <i class="fas fa-home me-2"></i>Back to Home
   </a>
 </div>
-{% endblock %}
-
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-{% if data.has_data %}
-// Line Chart - Daily Attendance Trend
-const lineCtx = document.getElementById('lineChart').getContext('2d');
-const dailyStats = {{ data.daily_stats | tojson }};
+  {% if data.has_data %}
+  // Line Chart - Daily Attendance Trend
+  const lineCtx = document.getElementById('lineChart').getContext('2d');
+  const dailyStats = {{ data.daily_stats | tojson }};
 
-if (Object.keys(dailyStats).length === 0) {
-    // No data available
-    lineCtx.font = '16px Arial';
-    lineCtx.fillStyle = '#6c757d';
-    lineCtx.textAlign = 'center';
-    lineCtx.fillText('No data available', lineCtx.canvas.width / 2, lineCtx.canvas.height / 2);
-} else {
-    const dates = Object.keys(dailyStats).sort();
-    const totalEntries = dates.map(date => dailyStats[date].total_entries);
-    const uniqueUsers = dates.map(date => dailyStats[date].unique_users);
-    
-    new Chart(lineCtx, {
-        type: 'line',
-        data: {
-            labels: dates.map(date => {
-                const d = new Date(date);
-                return d.toLocaleDateString();
-            }),
-            datasets: [{
-                label: 'Total Entries',
-                data: totalEntries,
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                tension: 0.1
-            }, {
-                label: 'Unique Users',
-                data: uniqueUsers,
-                borderColor: 'rgb(255, 99, 132)',
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                tension: 0.1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-}
-
-// Bar Chart - Employee Entries
-const barCtx = document.getElementById('barChart').getContext('2d');
-const employeeData = {{ data.employee_attendance | tojson }};
-
-if (!employeeData || employeeData.length === 0) {
-    // No data available
-    barCtx.font = '16px Arial';
-    barCtx.fillStyle = '#6c757d';
-    barCtx.textAlign = 'center';
-    barCtx.fillText('No data available', barCtx.canvas.width / 2, barCtx.canvas.height / 2);
-} else {
-    const employeeNames = employeeData.map(emp => emp['Employee Name']);
-    const employeeEntries = employeeData.map(emp => emp['Total Entries']);
-    
-    new Chart(barCtx, {
-        type: 'bar',
-        data: {
-            labels: employeeNames,
-            datasets: [{
-                label: 'Total Entries',
-                data: employeeEntries,
-                backgroundColor: [
-                    'rgba(255, 99, 132, 0.8)',
-                    'rgba(54, 162, 235, 0.8)',
-                    'rgba(255, 205, 86, 0.8)',
-                    'rgba(75, 192, 192, 0.8)',
-                    'rgba(153, 102, 255, 0.8)',
-                    'rgba(255, 159, 64, 0.8)'
-                ],
-                borderColor: [
-                    'rgba(255, 99, 132, 1)',
-                    'rgba(54, 162, 235, 1)',
-                    'rgba(255, 205, 86, 1)',
-                    'rgba(75, 192, 192, 1)',
-                    'rgba(153, 102, 255, 1)',
-                    'rgba(255, 159, 64, 1)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-}
-
-// Toggle custom date range visibility
-function toggleCustomRange(show) {
-  const customRange = document.getElementById('customDateRange');
-  customRange.style.display = show ? 'block' : 'none';
-}
-
-// Set quick date ranges
-function setQuickRange(days) {
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(endDate.getDate() - days + 1);
-  
-  document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
-  document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
-}
-
-// Validate date range
-function validateDateRange() {
-  const startDate = new Date(document.getElementById('startDate').value);
-  const endDate = new Date(document.getElementById('endDate').value);
-  
-  if (startDate > endDate) {
-    alert('Start date cannot be later than end date!');
-    return false;
-  }
-  
-  const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-  if (daysDiff > 365) {
-    alert('Date range cannot exceed 365 days!');
-    return false;
-  }
-  
-  return true;
-}
-
-// Add event listeners for date validation
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.getElementById('periodForm');
-  if (form) {
-    form.addEventListener('submit', function(e) {
-      const customRadio = document.getElementById('periodCustom');
-      if (customRadio && customRadio.checked) {
-        if (!validateDateRange()) {
-          e.preventDefault();
-        }
-      }
-    });
-  }
-});
-
-// Export table function
-function exportTable() {
-  const table = document.querySelector('table');
-  let csv = [];
-  const rows = table.querySelectorAll('tr');
-  
-  for (let i = 0; i < rows.length; i++) {
-    const row = [];
-    const cols = rows[i].querySelectorAll('td, th');
-    
-    for (let j = 0; j < cols.length; j++) {
-      let text = cols[j].innerText;
-      // Clean up text (remove badges, progress bars)
-      text = text.replace(/\s+/g, ' ').trim();
-      row.push('"' + text + '"');
-    }
-    csv.push(row.join(','));
-  }
-  
-  const csvContent = csv.join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  
-  // Dynamic filename based on period
-  const period = '{{ data.period_days }}';
-  let filename;
-  if (period === 'custom') {
-    filename = 'employee_attendance_{{ data.start_date }}_to_{{ data.end_date }}.csv';
+  if (Object.keys(dailyStats).length === 0) {
+      // No data available
+      lineCtx.font = '16px Arial';
+      lineCtx.fillStyle = '#6c757d';
+      lineCtx.textAlign = 'center';
+      lineCtx.fillText('No data available', lineCtx.canvas.width / 2, lineCtx.canvas.height / 2);
   } else {
-    filename = 'employee_attendance_' + period + 'days.csv';
-  }
-  
-  a.download = filename;
-  a.click();
-  window.URL.revokeObjectURL(url);
-}
+      const dates = Object.keys(dailyStats).sort();
+      const totalEntries = dates.map(date => dailyStats[date].total_entries);
+      const uniqueUsers = dates.map(date => dailyStats[date].unique_users);
 
-// Export absence table function
-function exportAbsenceTable() {
-  const table = document.getElementById('absenceTable');
-  let csv = [];
-  const rows = table.querySelectorAll('tr');
-  
-  for (let i = 0; i < rows.length; i++) {
-    const row = [];
-    const cols = rows[i].querySelectorAll('td, th');
-    
-    for (let j = 0; j < cols.length; j++) {
-      let text = cols[j].innerText;
-      // Clean up text (remove badges, progress bars)
-      text = text.replace(/\s+/g, ' ').trim();
-      row.push('"' + text + '"');
-    }
-    csv.push(row.join(','));
+      new Chart(lineCtx, {
+          type: 'line',
+          data: {
+              labels: dates.map(date => {
+                  const d = new Date(date);
+                  return d.toLocaleDateString();
+              }),
+              datasets: [{
+                  label: 'Total Entries',
+                  data: totalEntries,
+                  borderColor: 'rgb(75, 192, 192)',
+                  backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                  tension: 0.1
+              }, {
+                  label: 'Unique Users',
+                  data: uniqueUsers,
+                  borderColor: 'rgb(255, 99, 132)',
+                  backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                  tension: 0.1
+              }]
+          },
+          options: {
+              responsive: true,
+              scales: {
+                  y: {
+                      beginAtZero: true
+                  }
+              }
+          }
+      });
   }
-  
-  const csvContent = csv.join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  
-  // Dynamic filename based on period
-  const period = '{{ data.period_days }}';
-  let filename;
-  if (period === 'custom') {
-    filename = 'absence_analysis_{{ data.start_date }}_to_{{ data.end_date }}.csv';
+
+  // Bar Chart - Employee Entries
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  const employeeData = {{ data.employee_attendance | tojson }};
+
+  if (!employeeData || employeeData.length === 0) {
+      // No data available
+      barCtx.font = '16px Arial';
+      barCtx.fillStyle = '#6c757d';
+      barCtx.textAlign = 'center';
+      barCtx.fillText('No data available', barCtx.canvas.width / 2, barCtx.canvas.height / 2);
   } else {
-    filename = 'absence_analysis_' + period + 'days.csv';
+      const employeeNames = employeeData.map(emp => emp['Employee Name']);
+      const employeeEntries = employeeData.map(emp => emp['Total Entries']);
+
+      new Chart(barCtx, {
+          type: 'bar',
+          data: {
+              labels: employeeNames,
+              datasets: [{
+                  label: 'Total Entries',
+                  data: employeeEntries,
+                  backgroundColor: [
+                      'rgba(255, 99, 132, 0.8)',
+                      'rgba(54, 162, 235, 0.8)',
+                      'rgba(255, 205, 86, 0.8)',
+                      'rgba(75, 192, 192, 0.8)',
+                      'rgba(153, 102, 255, 0.8)',
+                      'rgba(255, 159, 64, 0.8)'
+                  ],
+                  borderColor: [
+                      'rgba(255, 99, 132, 1)',
+                      'rgba(54, 162, 235, 1)',
+                      'rgba(255, 205, 86, 1)',
+                      'rgba(75, 192, 192, 1)',
+                      'rgba(153, 102, 255, 1)',
+                      'rgba(255, 159, 64, 1)'
+                  ],
+                  borderWidth: 1
+              }]
+          },
+          options: {
+              responsive: true,
+              scales: {
+                  y: {
+                      beginAtZero: true
+                  }
+              }
+          }
+      });
   }
-  
-  a.download = filename;
-  a.click();
-  window.URL.revokeObjectURL(url);
-}
 
-// Working Hours Chart
-{% if data.working_hours %}
-const workingHoursCtx = document.getElementById('workingHoursChart').getContext('2d');
-const workingHoursData = {{ data.working_hours.analysis | tojson }};
 
-if (!workingHoursData || Object.keys(workingHoursData).length === 0) {
-    // No data available
-    workingHoursCtx.font = '16px Arial';
-    workingHoursCtx.fillStyle = '#6c757d';
-    workingHoursCtx.textAlign = 'center';
-    workingHoursCtx.fillText('No data available', workingHoursCtx.canvas.width / 2, workingHoursCtx.canvas.height / 2);
-} else {
-    const employeeNames = Object.keys(workingHoursData);
-    const avgHours = employeeNames.map(name => workingHoursData[name].avg_hours_per_day);
-    
-    // Check if all values are 0
-    const hasValidData = avgHours.some(hours => hours > 0);
-    
-    if (!hasValidData) {
-        workingHoursCtx.font = '16px Arial';
-        workingHoursCtx.fillStyle = '#6c757d';
-        workingHoursCtx.textAlign = 'center';
-        workingHoursCtx.fillText('No working hours data', workingHoursCtx.canvas.width / 2, workingHoursCtx.canvas.height / 2);
+
+  // Toggle custom date range visibility
+  function toggleCustomRange(show) {
+    const customRange = document.getElementById('customDateRange');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+
+    customRange.style.display = show ? 'block' : 'none';
+
+    if (show) {
+      // Restore name attributes and set default dates
+      startDateInput.setAttribute('name', 'start_date');
+      endDateInput.setAttribute('name', 'end_date');
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 29);
+
+      startDateInput.value = startDate.toISOString().split('T')[0];
+      endDateInput.value = endDate.toISOString().split('T')[0];
     } else {
-        new Chart(workingHoursCtx, {
-            type: 'bar',
-            data: {
-                labels: employeeNames,
-                datasets: [{
-                    label: 'Avg Hours/Day',
-                    data: avgHours,
-                    backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 12,
-                        ticks: {
-                            callback: function(value) {
-                                return value + 'h';
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            afterLabel: function(context) {
-                                const employeeName = context.label;
-                                const totalHrs = workingHoursData[employeeName].total_hours;
-                                return 'Total: ' + totalHrs + 'h';
-                            }
-                        }
-                    }
-                }
-            }
-        });
+      // Remove name attributes to prevent submission
+      startDateInput.removeAttribute('name');
+      endDateInput.removeAttribute('name');
     }
-}
+  }
 
-// Export working hours table function
-function exportWorkingHoursTable() {
-  const table = document.getElementById('workingHoursTable');
-  let csv = [];
-  const rows = table.querySelectorAll('tr');
-  
-  for (let i = 0; i < rows.length; i++) {
-    const row = [];
-    const cols = rows[i].querySelectorAll('td, th');
-    
-    for (let j = 0; j < cols.length; j++) {
-      let text = cols[j].innerText;
-      text = text.replace(/\s+/g, ' ').trim();
-      row.push('"' + text + '"');
+  // Set quick date ranges
+  function setQuickRange(days) {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - days + 1);
+
+    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+  }
+
+  // Validate date range
+  function validateDateRange() {
+    const startDate = new Date(document.getElementById('startDate').value);
+    const endDate = new Date(document.getElementById('endDate').value);
+
+    if (startDate > endDate) {
+      alert('Start date cannot be later than end date!');
+      return false;
     }
-    csv.push(row.join(','));
+
+    const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 365) {
+      alert('Date range cannot exceed 365 days!');
+      return false;
+    }
+
+    return true;
   }
-  
-  const csvContent = csv.join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  
-  const period = '{{ data.period_days }}';
-  let filename;
-  if (period === 'custom') {
-    filename = 'working_hours_analysis_{{ data.start_date }}_to_{{ data.end_date }}.csv';
+
+  // Add event listeners for date validation and radio button handling
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('periodForm');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        const customRadio = document.getElementById('periodCustom');
+        if (customRadio && customRadio.checked) {
+          if (!validateDateRange()) {
+            e.preventDefault();
+          }
+        }
+      });
+    }
+
+    // Initialize form state on page load
+    const currentPeriod = '{{ data.period_days }}';
+    if (currentPeriod === 'custom') {
+      toggleCustomRange(true);
+    } else {
+      toggleCustomRange(false);
+    }
+  });
+
+  // Export table function
+  function exportTable() {
+    const table = document.querySelector('table');
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = [];
+      const cols = rows[i].querySelectorAll('td, th');
+
+      for (let j = 0; j < cols.length; j++) {
+        let text = cols[j].innerText;
+        // Clean up text (remove badges, progress bars)
+        text = text.replace(/\s+/g, ' ').trim();
+        row.push('"' + text + '"');
+      }
+      csv.push(row.join(','));
+    }
+
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    // Dynamic filename based on period
+    const period = '{{ data.period_days }}';
+    let filename;
+    if (period === 'custom') {
+      filename = 'employee_attendance_{{ data.start_date }}_to_{{ data.end_date }}.csv';
+    } else {
+      filename = 'employee_attendance_' + period + 'days.csv';
+    }
+
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // Export absence table function
+  function exportAbsenceTable() {
+    const table = document.getElementById('absenceTable');
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = [];
+      const cols = rows[i].querySelectorAll('td, th');
+
+      for (let j = 0; j < cols.length; j++) {
+        let text = cols[j].innerText;
+        // Clean up text (remove badges, progress bars)
+        text = text.replace(/\s+/g, ' ').trim();
+        row.push('"' + text + '"');
+      }
+      csv.push(row.join(','));
+    }
+
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    // Dynamic filename based on period
+    const period = '{{ data.period_days }}';
+    let filename;
+    if (period === 'custom') {
+      filename = 'absence_analysis_{{ data.start_date }}_to_{{ data.end_date }}.csv';
+    } else {
+      filename = 'absence_analysis_' + period + 'days.csv';
+    }
+
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // Working Hours Chart
+  {% if data.working_hours %}
+  const workingHoursCtx = document.getElementById('workingHoursChart').getContext('2d');
+  const workingHoursData = {{ data.working_hours.analysis | tojson }};
+
+  if (!workingHoursData || Object.keys(workingHoursData).length === 0) {
+      // No data available
+      workingHoursCtx.font = '16px Arial';
+      workingHoursCtx.fillStyle = '#6c757d';
+      workingHoursCtx.textAlign = 'center';
+      workingHoursCtx.fillText('No data available', workingHoursCtx.canvas.width / 2, workingHoursCtx.canvas.height / 2);
   } else {
-    filename = 'working_hours_analysis_' + period + 'days.csv';
+      const employeeNames = Object.keys(workingHoursData);
+      const avgHours = employeeNames.map(name => workingHoursData[name].avg_hours_per_day);
+
+      // Check if all values are 0
+      const hasValidData = avgHours.some(hours => hours > 0);
+
+      if (!hasValidData) {
+          workingHoursCtx.font = '16px Arial';
+          workingHoursCtx.fillStyle = '#6c757d';
+          workingHoursCtx.textAlign = 'center';
+          workingHoursCtx.fillText('No working hours data', workingHoursCtx.canvas.width / 2, workingHoursCtx.canvas.height / 2);
+      } else {
+          new Chart(workingHoursCtx, {
+              type: 'bar',
+              data: {
+                  labels: employeeNames,
+                  datasets: [{
+                      label: 'Avg Hours/Day',
+                      data: avgHours,
+                      backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                      borderColor: 'rgba(54, 162, 235, 1)',
+                      borderWidth: 1
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  scales: {
+                      y: {
+                          beginAtZero: true,
+                          max: 12,
+                          ticks: {
+                              callback: function(value) {
+                                  return value + 'h';
+                              }
+                          }
+                      }
+                  },
+                  plugins: {
+                      tooltip: {
+                          callbacks: {
+                              afterLabel: function(context) {
+                                  const employeeName = context.label;
+                                  const totalHrs = workingHoursData[employeeName].total_hours;
+                                  return 'Total: ' + totalHrs + 'h';
+                              }
+                          }
+                      }
+                  }
+              }
+          });
+      }
   }
-  
-  a.download = filename;
-  a.click();
-  window.URL.revokeObjectURL(url);
-}
-{% endif %}
-{% endif %}
+
+  // Export working hours table function
+  function exportWorkingHoursTable() {
+    const table = document.getElementById('workingHoursTable');
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = [];
+      const cols = rows[i].querySelectorAll('td, th');
+
+      for (let j = 0; j < cols.length; j++) {
+        let text = cols[j].innerText;
+        text = text.replace(/\s+/g, ' ').trim();
+        row.push('"' + text + '"');
+      }
+      csv.push(row.join(','));
+    }
+
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    const period = '{{ data.period_days }}';
+    let filename;
+    if (period === 'custom') {
+      filename = 'working_hours_analysis_{{ data.start_date }}_to_{{ data.end_date }}.csv';
+    } else {
+      filename = 'working_hours_analysis_' + period + 'days.csv';
+    }
+
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+  {% endif %}
+  {% endif %}
 </script>
 {% endblock %}

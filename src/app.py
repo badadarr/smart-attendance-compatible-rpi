@@ -335,6 +335,9 @@ def attendance_reports():
             start_date = end_date - timedelta(days=29)
             period_days = 30
     else:
+        # Clear custom date values when using preset periods
+        custom_start = ""
+        custom_end = ""
         try:
             period_days = int(period_days)
         except ValueError:
