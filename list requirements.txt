@@ -1,0 +1,10 @@
+List Improvisasi Sistem
+
+1. Clean Up Frontend Dibikin Lebih Rapi
+2. Integrasi Backend dengan Frontend
+3. Integrasi Database Postgre
+4. Enhanced struktur sistem python dijadiin clean architecture
+5. Tambahin Rule Clock In dan Clock Out
+ - Ketentuan Clock In maksimal jam 09:00
+ - Ketentuan Clock Out minimal jam 16:00
+7. Utama - Integrasi ke CMS
