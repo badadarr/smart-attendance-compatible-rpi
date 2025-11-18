@@ -1,1 +1,178 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 /.venv
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Face Recognition Data - SENSITIVE FILES
+data/faces_data.pkl
+data/names.pkl
+data/*.pkl
+*.pkl
+
+# Attendance Files - SENSITIVE DATA
+Attendance/
+Attendance/*.csv
+attendance_*.csv
+*_attendance_*.csv
+
+# Backup Files
+backup/
+backups/
+*.backup
+*.bak
+
+# Log Files
+logs/
+*.log
+log/
+startup_*.log
+suspicious_activities_*.log
+
+# Temporary Files
+temp/
+tmp/
+*.tmp
+*_temp_*
+*_tmp_*
+
+# Export Files
+*_formatted_*.csv
+*_export_*.csv
+*_patterns_*.csv
+*_report_*.csv
+comprehensive_*.csv
+daily_report_*.csv
+weekly_report_*.csv
+monthly_report_*.csv
+all_time_report_*.csv
+
+# System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Camera/Video Files
+*.mp4
+*.avi
+*.mov
+*.mkv
+camera_test_*
+
+# Image Files (generated)
+captured_*.jpg
+captured_*.png
+face_*.jpg
+face_*.png
+training_*.jpg
+test_*.jpg
+
+# Config Files with Secrets
+config/secrets.json
+config/private_*.json
+config/*.key
+config/*.pem
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation Build
+docs/_build/
+docs/build/
+
+# Coverage Reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Raspberry Pi Specific
+*.swp
+*.swo
+*~
+
+# Node.js (if any frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Package managers
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Machine Learning Models
+*.h5
+*.hdf5
+*.model
+models/
+trained_models/
+
+# Installation Files
+requirements_rpi_fixed.txt
+fix_numpy_emergency.py
+
+# Test Files
+test_*.py
+*_test.py
+tests/output/
