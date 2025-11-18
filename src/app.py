@@ -1701,4 +1701,37 @@ def download_comprehensive():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    import sys
+    import socket
+    
+    # Get port from command line arguments
+    port = 8080  # Changed default port from 5000 to 8080
+    for i, arg in enumerate(sys.argv):
+        if arg == '--port' and i + 1 < len(sys.argv):
+            try:
+                port = int(sys.argv[i + 1])
+                break
+            except ValueError:
+                print("Invalid port number, using default 8080")
+    
+    # Check if port is available
+    def is_port_available(port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('localhost', port))
+                return True
+            except OSError:
+                return False
+    
+    # Find available port if specified port is busy
+    original_port = port
+    while not is_port_available(port) and port < original_port + 10:
+        print(f"Port {port} is busy, trying {port + 1}")
+        port += 1
+    
+    if not is_port_available(port):
+        print(f"Could not find available port starting from {original_port}")
+        sys.exit(1)
+    
+    print(f"Starting Flask app on http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
